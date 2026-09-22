@@ -1,6 +1,8 @@
 /** SQLite CURRENT_TIMESTAMP text (UTC, YYYY-MM-DD HH:MM:SS). */
 export type SqlTimestamp = string;
 export type AnnotationType = 'highlight' | 'area' | 'underline';
+/** Reading starts with selection only; annotation tools are explicitly armed by the user. */
+export type ReaderTool = 'select' | AnnotationType;
 export type NoteType = 'thought' | 'question' | 'critique' | 'idea';
 /** Schema readiness only; no parser or remote service is implemented in Phase 1. */
 export type ParserEngine = 'fast_local' | 'cloud_api' | 'local_mineru';

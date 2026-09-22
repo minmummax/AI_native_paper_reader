@@ -23,3 +23,6 @@
   .left-panel-width { width: 300px; }
   .right-panel-width { width: 320px; }
 }
+
+.annotation-excerpt summary::-webkit-details-marker { display: none; }
+.annotation-excerpt[open] > summary .excerpt-chevron { transform: rotate(90deg); }

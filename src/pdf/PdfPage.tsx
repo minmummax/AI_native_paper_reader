@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { TextLayer, type PDFDocumentProxy, type RenderTask } from 'pdfjs-dist';
 import { normalizeRect, rotateRect, mergeTextRects } from '../lib/coordinates';
-import type { Annotation, AnnotationType, NormalizedRect } from '../types';
+import type { Annotation, AnnotationType, NormalizedRect, ReaderTool } from '../types';
 
 export interface SelectionDraft { page: number; rects: NormalizedRect[]; text: string; type: AnnotationType }
 interface Props {
   pdf: PDFDocumentProxy; page: number; width: number; height: number; rotation: number;
-  annotations?: Annotation[]; mode?: 'highlight'|'area'|'underline'; thumbnail?: boolean;
+  annotations?: Annotation[]; mode?: ReaderTool; thumbnail?: boolean;
   onSelection?: (draft: SelectionDraft) => void; onAnnotation?: (id: string) => void;
 }
 
 /** Renders one visible page with a HiDPI canvas, selectable text and normalized overlays. */
-export function PdfPage({ pdf,page,width,height,rotation,annotations = [],mode = 'highlight',thumbnail = false,onSelection,onAnnotation }: Props) {
+export function PdfPage({ pdf,page,width,height,rotation,annotations = [],mode = 'select',thumbnail = false,onSelection,onAnnotation }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -20,6 +20,7 @@ export function PdfPage({ pdf,page,width,height,rotation,annotations = [],mode =
   const [error,setError] = useState<string | null>(null);
   const [drag,setDrag] = useState<{x: number;y: number;width: number;height: number} | null>(null);
   const start = useRef<{x: number;y: number} | null>(null);
+  const clickOrigin = useRef<{x:number;y:number}|null>(null);
   useEffect(() => {
     let active = true;
     let render: RenderTask | undefined;
@@ -60,6 +61,18 @@ export function PdfPage({ pdf,page,width,height,rotation,annotations = [],mode =
   };
   const finish = (event: PointerEvent<HTMLDivElement>): void => {
     if (thumbnail) return;
+    if (mode === 'select') {
+      const origin=clickOrigin.current;clickOrigin.current=null;
+      const end=point(event);
+      // A click can open an existing annotation; dragging remains native text selection/copy.
+      if(origin&&Math.abs(end.x-origin.x)<3&&Math.abs(end.y-origin.y)<3&&window.getSelection()?.isCollapsed) {
+        // Convert the click to current viewport ratios before testing rotated annotation bounds.
+        const x=end.x/dimensions.width,y=end.y/dimensions.height;
+        const hit=annotations.find(annotation=>annotation.rects.some(stored=>{const rect=rotateRect(stored,rotation);return x>=rect.x&&x<=rect.x+rect.width&&y>=rect.y&&y<=rect.y+rect.height;}));
+        if(hit)onAnnotation?.(hit.id);
+      }
+      return;
+    }
     if (mode === 'area' && start.current) {
       const end = point(event); const begin = start.current; start.current = null; setDrag(null);
       event.currentTarget.releasePointerCapture(event.pointerId);
@@ -98,7 +111,7 @@ export function PdfPage({ pdf,page,width,height,rotation,annotations = [],mode =
     }
   };
   return <div ref={rootRef} className={`pdf-page relative shrink-0 bg-white shadow ${mode === 'area' && !thumbnail ? 'cursor-crosshair select-none' : ''}`} style={dimensions}
-    onPointerDown={event => {if (mode === 'area' && !thumbnail) {start.current=point(event); event.currentTarget.setPointerCapture(event.pointerId);}}}
+    onPointerDown={event => {if(event.button!==0)return;clickOrigin.current=point(event);if (mode === 'area' && !thumbnail) {start.current=point(event); event.currentTarget.setPointerCapture(event.pointerId);}}}
     onPointerMove={event => {if (start.current) {const p=point(event);setDrag({x:Math.min(start.current.x,p.x),y:Math.min(start.current.y,p.y),width:Math.abs(p.x-start.current.x),height:Math.abs(p.y-start.current.y)});}}}
     onPointerUp={finish} onPointerCancel={() => {start.current=null;setDrag(null);}}>
     <canvas ref={canvasRef} className="block h-full w-full" aria-label={`PDF 第 ${page} 页`} />
@@ -110,8 +123,7 @@ export function PdfPage({ pdf,page,width,height,rotation,annotations = [],mode =
         const edge=(rotation+intrinsicRotation)%360;
         const underline=annotation.type==='underline'?`2px solid ${annotation.color}`:undefined;
         // Percentage positions multiply canonical ratios by the current viewport via CSS layout.
-        return <button key={`${annotation.id}-${index}`} title={annotation.selected_text || '区域标注'} aria-label={`跳转标注：${annotation.selected_text || '区域'}`}
-          onClick={event => {event.stopPropagation();onAnnotation?.(annotation.id);}} className="pointer-events-auto absolute"
+        return <span key={`${annotation.id}-${index}`} aria-hidden="true" className="pointer-events-none absolute"
           style={{left:`${rect.x*100}%`,top:`${rect.y*100}%`,width:`${rect.width*100}%`,height:`${rect.height*100}%`,
             backgroundColor:annotation.type === 'underline' ? 'transparent' : annotation.color+'55',
             border:annotation.type === 'area' ? `2px solid ${annotation.color}` : undefined,

@@ -2,7 +2,7 @@ import { useCallback,useEffect,useMemo,useRef,useState,type CSSProperties } from
 import { isTauri,invoke } from '@tauri-apps/api/core';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { BookOpen,ChevronLeft,ChevronRight,FolderOpen,Maximize,PanelLeft,PanelRight,RotateCw,Search,ShieldCheck,Upload,X } from 'lucide-react';
-import type { Annotation,Note,Paper } from './types';
+import type { Annotation,Note,Paper,ReaderTool } from './types';
 import { WindowControls } from './components/WindowControls';
 import { DocumentNavigation } from './components/DocumentNavigation';
 import { NotesPanel } from './components/NotesPanel';
@@ -31,7 +31,7 @@ export function App() {
   const [notes,setNotes]=useState<Note[]>([]);const [annotations,setAnnotations]=useState<Annotation[]>([]);
   const [anchor,setAnchor]=useState<Annotation|null>(null);const [page,setPage]=useState(1);const [pageInput,setPageInput]=useState('1');
   const [zoom,setZoom]=useState(1);const [rotation,setRotation]=useState(0);
-  const [mode,setMode]=useState<'highlight'|'area'|'underline'>('highlight');const [color,setColor]=useState('#FFE066');
+  const [mode,setMode]=useState<ReaderTool>('select');const [color,setColor]=useState('#FFE066');
   const [error,setError]=useState('');const [notice,setNotice]=useState('');const [busy,setBusy]=useState(false);const busyRef=useRef(false);const cancelImport=useRef(false);
   const [revision,setRevision]=useState(0);
   const [organizing,setOrganizing]=useState<Paper|null>(null);
@@ -51,7 +51,7 @@ export function App() {
   const selectPaper=useCallback((paper:Paper)=>{
     if(activeRef.current===paper.id){setActive(paper);return;}
     if(dirty&&!window.confirm('当前笔记尚未保存，是否放弃草稿并切换论文？'))return;
-    setDirty(false);setActive(paper);setPage(paper.last_read_page??1);setZoom(1);setRotation(0);setAnchor(null);setAnnotations([]);setNotes([]);
+    setDirty(false);setActive(paper);setPage(paper.last_read_page??1);setZoom(1);setRotation(0);setMode('select');setAnchor(null);setAnnotations([]);setNotes([]);
     void library.saveSetting('active_paper',paper.id).catch(report);
   },[dirty,report]);
   useEffect(()=>{setPageInput(String(page));},[page]);
@@ -124,10 +124,11 @@ export function App() {
   const jump=useCallback((next:number)=>{if(Number.isFinite(next))reader.current?.jumpTo(next);},[]);
   const onPage=useCallback((next:number)=>{setPage(next);if(activeRef.current)void library.saveProgress(activeRef.current,next).catch(report);},[report]);
   const onSelection=(draft:SelectionDraft):void=>{
-    if(!active)return;const id=active.id;
+    if(!active||mode==='select')return;const id=active.id;
+    setMode('select');
     void library.saveAnnotation({paper_id:id,page_number:draft.page,type:draft.type,color,selected_text:draft.text||null,rects:draft.rects}).then(async annotation=>{
-      if(activeRef.current===id){setAnchor(annotation);setRightOpen(true);if(!window.matchMedia('(min-width: 1024px)').matches)setLeftOpen(false);}
-      window.getSelection()?.removeAllRanges();await refreshDetails(id);
+      if(activeRef.current===id)setNotice(`已保存第 ${annotation.page_number} 页标注，可在右侧“标注”中查看`);
+      await refreshDetails(id);
     }).catch(report);
   };
   const remove=async():Promise<void>=>{
@@ -178,7 +179,7 @@ export function App() {
           {!focusMode&&<div className="flex shrink-0 flex-wrap items-center justify-center gap-2 border-b border-stone-200 bg-white/80 px-3 py-2">
             <button className="small-button" aria-label="上一页" disabled={page<=1} onClick={()=>jump(page-1)}>‹</button><form className="flex items-center gap-1 text-xs" onSubmit={event=>{event.preventDefault();jump(Number(pageInput));}}><input className="w-10 rounded border p-1 text-center" aria-label="页码" value={pageInput} onChange={event=>setPageInput(event.target.value)} inputMode="numeric"/><span>/ {pdf.numPages}</span></form><button className="small-button" aria-label="下一页" disabled={page>=pdf.numPages} onClick={()=>jump(page+1)}>›</button>
             <select aria-label="缩放" className="rounded border p-1 text-xs" value={zoom} onChange={event=>setZoom(Number(event.target.value))}>{[0.5,0.75,1,1.25,1.5,2].map(value=><option key={value} value={value}>{value===1?'适合宽度':`${value*100}%`}</option>)}</select><button className="small-button" aria-label="顺时针旋转" onClick={()=>setRotation(value=>(value+90)%360)}><RotateCw size={14}/></button>
-            <select aria-label="标注工具" className="rounded border p-1 text-xs" value={mode} onChange={event=>setMode(event.target.value as typeof mode)}><option value="highlight">文字高亮</option><option value="underline">下划线</option><option value="area">区域框选</option></select>
+            <select aria-label="标注工具" className="rounded border p-1 text-xs" value={mode} onChange={event=>{window.getSelection()?.removeAllRanges();setMode(event.target.value as ReaderTool);}}><option value="select">选择文字（不标注）</option><option value="highlight">文字高亮</option><option value="underline">下划线</option><option value="area">区域框选</option></select>
             <div className="flex gap-1" aria-label="标注颜色">{['#FFE066','#86EFAC','#93C5FD','#F9A8D4'].map(value=><button key={value} className={`h-5 w-5 rounded-full border-2 ${value===color?'border-slate-600':'border-white'}`} style={{backgroundColor:value}} aria-label={`颜色 ${value}`} aria-pressed={value===color} onClick={()=>setColor(value)}/>)}</div>
           </div>}
           <PdfReader key={active.id} ref={reader} pdf={pdf} zoom={zoom} rotation={rotation} initialPage={active.last_read_page??1} annotations={annotations} mode={mode} onPage={onPage} onSelection={onSelection} onAnnotation={id=>{setAnchor(annotations.find(item=>item.id===id)??null);setRightOpen(true);}}/>

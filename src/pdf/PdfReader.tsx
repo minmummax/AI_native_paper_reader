@@ -1,12 +1,12 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { PdfPage, type SelectionDraft } from './PdfPage';
-import type { Annotation } from '../types';
+import type { Annotation, ReaderTool } from '../types';
 
 export interface ReaderHandle { jumpTo: (page: number) => void }
 interface Props {
   pdf: PDFDocumentProxy; zoom: number; rotation: number; initialPage: number;
-  annotations: Annotation[]; mode: 'highlight'|'area'|'underline';
+  annotations: Annotation[]; mode: ReaderTool;
   onPage: (page: number) => void; onSelection: (draft: SelectionDraft) => void; onAnnotation: (id: string) => void;
 }
 
