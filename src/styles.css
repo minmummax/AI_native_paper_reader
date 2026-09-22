@@ -1,0 +1,12 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body { @apply m-0 bg-stone-100 text-slate-800 antialiased; font-family: system-ui, sans-serif; }
+  button { @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600 focus-visible:ring-offset-2; }
+}
+@layer components {
+  .icon-button { @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-stone-200 hover:text-slate-900 disabled:opacity-40; }
+  .panel-heading { @apply flex h-14 shrink-0 items-center justify-between border-b border-stone-200 px-5 text-sm font-semibold; }
+}
