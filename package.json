@@ -7,15 +7,18 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "test": "python3 -m unittest discover -s tests -v",
-    "tauri": "tauri"
+    "test": "node --test tests/*.test.mjs && python3 -m unittest discover -s tests -v",
+    "tauri": "tauri",
+    "predev": "node scripts/copy-pdf-assets.mjs",
+    "prebuild": "node scripts/copy-pdf-assets.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-sql": "^2.0.0",
+    "lucide-react": "^0.468.0",
+    "pdfjs-dist": "^4.10.38",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "lucide-react": "^0.468.0"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0",

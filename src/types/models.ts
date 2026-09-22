@@ -18,6 +18,9 @@ export interface NormalizedRect {
 export interface PaperRow {
   id: string;
   title: string;
+  /** Original basename, retained independently from editable title; null for legacy imports. */
+  source_name: string | null;
+  metadata_title: string | null;
   authors: string | null;
   year: number | null;
   abstract: string | null;

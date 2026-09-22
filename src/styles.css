@@ -10,3 +10,16 @@
   .icon-button { @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-stone-200 hover:text-slate-900 disabled:opacity-40; }
   .panel-heading { @apply flex h-14 shrink-0 items-center justify-between border-b border-stone-200 px-5 text-sm font-semibold; }
 }
+
+@layer components {
+  .small-button { @apply inline-flex items-center justify-center rounded-lg px-2 py-1.5 text-xs text-slate-600 hover:bg-stone-200 disabled:cursor-not-allowed disabled:opacity-40; }
+  .primary-button { @apply rounded-lg bg-teal-700 px-4 py-2 text-xs font-medium text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-40; }
+}
+.pdf-page .textLayer { z-index: 1; }
+.pdf-page > .pointer-events-none { z-index: 2; }
+.left-panel-width { width: var(--left-panel-width, 280px); }
+.right-panel-width { width: var(--right-panel-width, 320px); }
+@media (max-width: 1023px) {
+  .left-panel-width { width: 300px; }
+  .right-panel-width { width: 320px; }
+}

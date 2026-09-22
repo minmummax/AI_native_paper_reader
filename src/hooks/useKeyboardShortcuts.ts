@@ -6,6 +6,7 @@ interface ShortcutActions {
   toggleRight: () => void;
   toggleFocus: () => void;
   exitFocus: () => void;
+  focusSearch: () => void;
 }
 
 /**
@@ -17,6 +18,7 @@ export function useKeyboardShortcuts(actions: ShortcutActions): void {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
       if (event.defaultPrevented || event.repeat || event.isComposing) return;
+      if(hasPrimaryModifier(event)&&!event.altKey&&!event.shiftKey&&event.code==='KeyK'){event.preventDefault();actions.focusSearch();return;}
       const target = event.target;
       if (target instanceof HTMLElement && (target.isContentEditable || target.closest('input, textarea, select'))) return;
       if (event.key === 'F11' && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
