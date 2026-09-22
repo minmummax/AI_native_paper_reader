@@ -26,3 +26,7 @@
 
 .annotation-excerpt summary::-webkit-details-marker { display: none; }
 .annotation-excerpt[open] > summary .excerpt-chevron { transform: rotate(90deg); }
+
+.annotation-locator { outline: 3px solid #0f766e; outline-offset: 3px; z-index: 3; animation: annotation-locator-pulse .6s ease-in-out 3; }
+@keyframes annotation-locator-pulse { 50% { outline-color: #2dd4bf; outline-offset: 5px; } }
+@media (prefers-reduced-motion: reduce) { .annotation-locator { animation: none; } }

@@ -7,13 +7,14 @@ interface Props {
   tags:Tag[]; collections:Collection[]; membership:{tags:string[];collections:string[]};
   onSave:(input:NoteInput,id?:string)=>Promise<void>; onDelete:(kind:'note'|'annotation',id:string)=>void;
   onOrganize:()=>void;
+  onJumpAnnotation:(id:string)=>void;
   onJump:(page:number)=>void; onAnchor:(annotation:Annotation|null)=>void;
   onMembership:(kind:'tag'|'collection',id:string,enabled:boolean)=>void; onDirty:(dirty:boolean)=>void;
 }
 const noteLabels:Record<NoteType,string>={thought:'思考',question:'问题',critique:'评议',idea:'想法'};
 
 /** Edits local Markdown source notes and browses page-linked annotations without executing HTML. */
-export function NotesPanel({paper,page,notes,annotations,anchor,tags,collections,membership,onSave,onDelete,onJump,onAnchor,onMembership,onDirty,onOrganize}:Props) {
+export function NotesPanel({paper,page,notes,annotations,anchor,tags,collections,membership,onSave,onDelete,onJump,onJumpAnnotation,onAnchor,onMembership,onDirty,onOrganize}:Props) {
   const [tab,setTab]=useState<'notes'|'annotations'|'details'>('notes');
   const [text,setText]=useState('');const [kind,setKind]=useState<NoteType>('thought');
   const [editing,setEditing]=useState<Note|null>(null);const [saving,setSaving]=useState(false);const [error,setError]=useState('');
@@ -39,13 +40,13 @@ export function NotesPanel({paper,page,notes,annotations,anchor,tags,collections
           <div className="mt-2 flex gap-2"><button className="primary-button flex-1" disabled={saving||!text.trim()}>{saving?'保存中…':editing?'保存修改':'保存笔记'}</button>{editing&&<button type="button" className="small-button" onClick={()=>{setEditing(null);setText('');}}>取消</button>}</div>
         </form>
         {!notes.length&&<p className="py-8 text-center text-xs text-slate-400">论文中的思考与问题，将汇集在这里。</p>}
-        <div className="mt-4 space-y-3">{notes.map(note=><article key={note.id} className="rounded-xl border border-stone-200 p-3"><div className="flex justify-between text-xs text-teal-800"><span>{noteLabels[note.note_type??'thought']}</span><button onClick={()=>onJump(note.page_number??1)}>第 {note.page_number??1} 页 ↗</button></div><p className="my-3 whitespace-pre-wrap break-words text-sm leading-6">{note.content_markdown}</p><div className="flex gap-3 text-xs text-slate-400"><button disabled={!!text.trim()} onClick={()=>{setEditing(note);setText(note.content_markdown);setKind(note.note_type??'thought');}}>编辑</button><button onClick={()=>onDelete('note',note.id)}>删除</button></div></article>)}</div>
+        <div className="mt-4 space-y-3">{notes.map(note=><article key={note.id} className="rounded-xl border border-stone-200 p-3"><div className="flex justify-between text-xs text-teal-800"><span>{noteLabels[note.note_type??'thought']}</span><button onClick={()=>{if(note.annotation_id&&annotations.some(item=>item.id===note.annotation_id))onJumpAnnotation(note.annotation_id);else onJump(note.page_number??1);}}>{note.annotation_id&&annotations.some(item=>item.id===note.annotation_id)?'定位标注':`第 ${note.page_number??1} 页`} ↗</button></div><p className="my-3 whitespace-pre-wrap break-words text-sm leading-6">{note.content_markdown}</p><div className="flex gap-3 text-xs text-slate-400"><button disabled={!!text.trim()} onClick={()=>{setEditing(note);setText(note.content_markdown);setKind(note.note_type??'thought');}}>编辑</button><button onClick={()=>onDelete('note',note.id)}>删除</button></div></article>)}</div>
       </>}
       {tab==='annotations'&&<div className="space-y-2">
         {!annotations.length&&<p className="py-8 text-center text-xs leading-6 text-slate-400">默认拖选只选择文字。<br/>请先在顶部选择高亮、下划线或框选工具，再添加标注。</p>}
         {annotations.map(annotation=><article key={annotation.id} className="min-w-0 rounded-lg border border-stone-200 border-l-4 px-2 py-1" style={{borderLeftColor:annotation.color}}>
           <AnnotationExcerpt text={annotation.selected_text} label={`第 ${annotation.page_number} 页 · ${annotation.type==='area'?'框选':annotation.type==='underline'?'下划线':'高亮'}`}>
-            <div className="flex flex-wrap gap-3 py-2 text-xs text-slate-500"><button onClick={()=>onJump(annotation.page_number)}>查看原文 ↗</button><button onClick={()=>onAnchor(annotation)}>添加笔记</button><button onClick={()=>onDelete('annotation',annotation.id)}>删除</button></div>
+            <div className="flex flex-wrap gap-3 py-2 text-xs text-slate-500"><button onClick={()=>onJumpAnnotation(annotation.id)}>定位标注 ↗</button><button onClick={()=>onAnchor(annotation)}>添加笔记</button><button onClick={()=>onDelete('annotation',annotation.id)}>删除</button></div>
           </AnnotationExcerpt>
         </article>)}
       </div>}

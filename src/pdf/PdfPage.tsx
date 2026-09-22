@@ -7,11 +7,12 @@ export interface SelectionDraft { page: number; rects: NormalizedRect[]; text: s
 interface Props {
   pdf: PDFDocumentProxy; page: number; width: number; height: number; rotation: number;
   annotations?: Annotation[]; mode?: ReaderTool; thumbnail?: boolean;
+  focusedAnnotation?: {id:string;version:number}|null;
   onSelection?: (draft: SelectionDraft) => void; onAnnotation?: (id: string) => void;
 }
 
 /** Renders one visible page with a HiDPI canvas, selectable text and normalized overlays. */
-export function PdfPage({ pdf,page,width,height,rotation,annotations = [],mode = 'select',thumbnail = false,onSelection,onAnnotation }: Props) {
+export function PdfPage({ pdf,page,width,height,rotation,annotations = [],mode = 'select',thumbnail = false,focusedAnnotation,onSelection,onAnnotation }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -123,7 +124,7 @@ export function PdfPage({ pdf,page,width,height,rotation,annotations = [],mode =
         const edge=(rotation+intrinsicRotation)%360;
         const underline=annotation.type==='underline'?`2px solid ${annotation.color}`:undefined;
         // Percentage positions multiply canonical ratios by the current viewport via CSS layout.
-        return <span key={`${annotation.id}-${index}`} aria-hidden="true" className="pointer-events-none absolute"
+        return <span key={`${annotation.id}-${index}-${focusedAnnotation?.id===annotation.id?focusedAnnotation.version:0}`} aria-hidden="true" className={`pointer-events-none absolute ${focusedAnnotation?.id===annotation.id?'annotation-locator':''}`}
           style={{left:`${rect.x*100}%`,top:`${rect.y*100}%`,width:`${rect.width*100}%`,height:`${rect.height*100}%`,
             backgroundColor:annotation.type === 'underline' ? 'transparent' : annotation.color+'55',
             border:annotation.type === 'area' ? `2px solid ${annotation.color}` : undefined,

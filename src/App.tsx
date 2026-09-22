@@ -122,6 +122,13 @@ export function App() {
     return()=>{stopped=true;dispose?.();};
   },[database.state,importPaths,report]);
   const jump=useCallback((next:number)=>{if(Number.isFinite(next))reader.current?.jumpTo(next);},[]);
+  const jumpToAnnotation=useCallback((id:string)=>{
+    const annotation=annotations.find(item=>item.id===id);
+    if(!annotation)return;
+    if(!reader.current){setNotice('论文正在加载，请稍后定位标注');return;}
+    reader.current.jumpToAnnotation(annotation);
+    if(!window.matchMedia('(min-width: 1024px)').matches){setLeftOpen(false);setRightOpen(false);}
+  },[annotations]);
   const onPage=useCallback((next:number)=>{setPage(next);if(activeRef.current)void library.saveProgress(activeRef.current,next).catch(report);},[report]);
   const onSelection=(draft:SelectionDraft):void=>{
     if(!active||mode==='select')return;const id=active.id;
@@ -182,13 +189,13 @@ export function App() {
             <select aria-label="标注工具" className="rounded border p-1 text-xs" value={mode} onChange={event=>{window.getSelection()?.removeAllRanges();setMode(event.target.value as ReaderTool);}}><option value="select">选择文字（不标注）</option><option value="highlight">文字高亮</option><option value="underline">下划线</option><option value="area">区域框选</option></select>
             <div className="flex gap-1" aria-label="标注颜色">{['#FFE066','#86EFAC','#93C5FD','#F9A8D4'].map(value=><button key={value} className={`h-5 w-5 rounded-full border-2 ${value===color?'border-slate-600':'border-white'}`} style={{backgroundColor:value}} aria-label={`颜色 ${value}`} aria-pressed={value===color} onClick={()=>setColor(value)}/>)}</div>
           </div>}
-          <PdfReader key={active.id} ref={reader} pdf={pdf} zoom={zoom} rotation={rotation} initialPage={active.last_read_page??1} annotations={annotations} mode={mode} onPage={onPage} onSelection={onSelection} onAnnotation={id=>{setAnchor(annotations.find(item=>item.id===id)??null);setRightOpen(true);}}/>
+          <PdfReader key={active.id} ref={reader} pdf={pdf} zoom={zoom} rotation={rotation} initialPage={active.last_read_page??1} annotations={annotations} mode={mode} onError={report} onPage={onPage} onSelection={onSelection} onAnnotation={id=>{setAnchor(annotations.find(item=>item.id===id)??null);setRightOpen(true);}}/>
         </>:active?<div className="flex flex-1 items-center justify-center p-8 text-sm text-slate-500">{loading?'正在加载本地 PDF…':pdfError||'正在准备阅读器…'}</div>:<div className="flex flex-1 flex-col items-center justify-center overflow-auto px-6 py-12 text-center"><div className="mb-7 flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border border-stone-200 bg-white text-teal-700 shadow-sm"><BookOpen size={34} strokeWidth={1.4}/></div><h1 className="text-xl font-semibold sm:text-2xl">拖入 PDF 开始阅读</h1><p className="mt-3 text-sm leading-7 text-slate-500">让论文、标注与想法，留在同一个地方。</p><div className="mt-7 flex flex-wrap justify-center gap-3"><button className="primary-button" disabled={!ready||busy} onClick={()=>{void choose(false);}}>选择 PDF</button><button className="small-button border bg-white" disabled={!ready||busy} onClick={()=>{void choose(true);}}>打开文件夹</button></div><p className="mt-5 text-xs leading-6 text-slate-400">{ready?'支持多文件与文件夹拖入 · 自动去重 · 完全离线':'浏览器仅预览布局，请在桌面应用中导入 PDF'}</p></div>}
       </main>
       {rightVisible&&<PanelResizer side="right" width={displayedRight} min={260} max={rightMax} onChange={setRightWidth} onReset={()=>setRightWidth(320)}/>}
       <aside aria-label="笔记与标注" className={`${rightVisible?'flex':'hidden'} absolute inset-y-0 right-0 z-20 right-panel-width max-w-[85vw] shrink-0 flex-col border-l border-stone-200 bg-white shadow-xl lg:static lg:shadow-none`}>
         <div className="panel-heading"><span>阅读记录</span><button className="icon-button" aria-label="收起右侧栏" onClick={toggleRight}><ChevronRight size={16}/></button></div>
-        {active?<NotesPanel key={active.id} paper={active} page={page} notes={notes} annotations={annotations} anchor={anchor} tags={tags} collections={collections} membership={membership} onDirty={setDirty} onAnchor={setAnchor} onJump={jump} onOrganize={()=>setOrganizing(active)}
+        {active?<NotesPanel key={active.id} paper={active} page={page} notes={notes} annotations={annotations} anchor={anchor} tags={tags} collections={collections} membership={membership} onDirty={setDirty} onAnchor={setAnchor} onJump={jump} onJumpAnnotation={jumpToAnnotation} onOrganize={()=>setOrganizing(active)}
           onSave={async(input,id)=>{await library.saveNote(input,id);await refreshDetails(input.paper_id);setRevision(value=>value+1);}}
           onDelete={(kind,id)=>setDeletePending({kind,id})} onMembership={(kind,id,enabled)=>{void library.setMembership(active.id,kind,id,enabled).then(()=>refreshDetails(active.id)).then(()=>setRevision(value=>value+1)).catch(report);}}/>:<p className="px-6 pt-20 text-center text-xs leading-7 text-slate-400">打开一份论文，<br/>开始记录思考与问题。</p>}
       </aside>
