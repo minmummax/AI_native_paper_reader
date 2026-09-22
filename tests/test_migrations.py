@@ -88,3 +88,41 @@ class MigrationTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class CollectionMigrationTests(unittest.TestCase):
+    def test_existing_data_survives_upgrade_and_collections_cascade(self):
+        db = sqlite3.connect(':memory:')
+        try:
+            db.execute('PRAGMA foreign_keys=ON')
+            db.executescript(SQL)
+            db.execute("INSERT INTO papers(id,title,file_path,file_size,total_pages) VALUES ('p','Existing','local.pdf',10,3)")
+            db.execute("INSERT INTO notes(id,paper_id,content_markdown) VALUES ('n','p','existing note')")
+            second = (ROOT / 'src-tauri' / 'migrations' / '0002_collections.sql').read_text()
+            db.executescript(second)
+            db.executescript(second)
+            self.assertEqual(db.execute('SELECT content_markdown FROM notes').fetchone()[0], 'existing note')
+            db.execute("INSERT INTO collections VALUES ('c','Read later')")
+            db.execute("INSERT INTO paper_collections VALUES ('p','c')")
+            db.execute("DELETE FROM collections WHERE id='c'")
+            self.assertEqual(db.execute('SELECT count(*) FROM paper_collections').fetchone()[0], 0)
+            self.assertEqual(db.execute('SELECT count(*) FROM papers').fetchone()[0], 1)
+        finally:
+            db.close()
+
+
+class PaperNameMigrationTests(unittest.TestCase):
+    def test_upgrade_preserves_titles_and_annotations_and_retains_original_name_after_rename(self):
+        db = sqlite3.connect(':memory:')
+        try:
+            db.execute('PRAGMA foreign_keys=ON')
+            db.executescript(SQL)
+            db.execute("INSERT INTO papers(id,title,file_path,file_size,total_pages) VALUES ('p','Legacy title','hash.pdf',10,2)")
+            db.execute("INSERT INTO annotations(id,paper_id,page_number,type,color,rects_json) VALUES ('a','p',1,'underline','#FFE066','[]')")
+            db.executescript((ROOT / 'src-tauri' / 'migrations' / '0002_collections.sql').read_text())
+            db.executescript((ROOT / 'src-tauri' / 'migrations' / '0003_paper_names.sql').read_text())
+            self.assertEqual(db.execute('SELECT title,source_name FROM papers').fetchone(), ('Legacy title',None))
+            db.execute("UPDATE papers SET source_name='Original.pdf',title='New title' WHERE id='p'")
+            self.assertEqual(db.execute('SELECT title,source_name FROM papers').fetchone(), ('New title','Original.pdf'))
+            self.assertEqual(db.execute('SELECT count(*) FROM annotations').fetchone()[0],1)
+        finally:
+            db.close()

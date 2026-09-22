@@ -1,3 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-fn main() { local_paper_reader_lib::run() }
+fn main() {
+    local_paper_reader_lib::run()
+}

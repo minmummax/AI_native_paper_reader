@@ -15,3 +15,6 @@ __pycache__/
 *.sqlite
 *.sqlite3
 *.log
+
+# Generated offline PDF font/CMap resources
+public/pdfjs/
