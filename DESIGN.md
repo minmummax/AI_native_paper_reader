@@ -149,3 +149,14 @@ The frontend communicates with the Rust core via the following commands:
 - `save_annotation(annotation: AnnotationInput) -> Promise<Annotation>`: Saves highlight/rect to SQLite.
 - `get_annotations_by_page(paper_id: string, page_number: number) -> Promise<Annotation[]>`: Fetches annotations for viewport.
 - `save_note(note: NoteInput) -> Promise<Note>`: Saves markdown research note.
+
+---
+
+## 6. Phase 1 Implementation Additions
+
+- Migration 2 adds `collections(id, name)` and `paper_collections(paper_id, collection_id)` plus reverse-lookup indexes, keeping collections distinct from tags.
+- Migration 3 adds nullable `papers.source_name` and `papers.metadata_title`. `papers.title` is the editable shelf name. New imports use the original filename as their initial shelf name. Legacy records retain their titles; re-importing identical content recovers missing filenames without deleting notes or annotations.
+- Rust commands `prepare_import`, `read_paper_file`, and `scan_folder` perform background local I/O, managed copies and SHA-256 hashing. Metadata extraction runs in a bundled PDF.js Worker; typed frontend repositories implement library/annotation/note queries via the local Tauri SQL plugin. The section 5 command names remain conceptual contracts, not additional Rust endpoints in this implementation.
+- Text selection reads leaf text-node ranges, merges overlapping fragments on a shared line, and stores normalized canonical page rectangles. The same line consolidation applies to existing annotations at render time. Annotation edges rotate with the page.
+- A per-paper organizer exposes naming, multi-tag membership and collections. Shelf chips and group counts expose classification directly; search combines metadata, filenames, groups and notes with bound SQL parameters.
+- Layout widths and visibility are persisted in `app_settings` under `layout`. Desktop dividers support pointer and keyboard resizing while reserving a readable center viewport; narrow windows use overlay drawers.
