@@ -1,3 +1,5 @@
+mod arxiv;
+mod backup;
 mod files;
 
 use tauri_plugin_sql::{Migration, MigrationKind};
@@ -28,10 +30,16 @@ pub fn run() {
     ];
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .manage(arxiv::DownloadState::default())
         .invoke_handler(tauri::generate_handler![
             files::prepare_import,
             files::read_paper_file,
-            files::scan_folder
+            files::scan_folder,
+            arxiv::download_arxiv,
+            arxiv::cancel_arxiv_download,
+            backup::inspect_backup,
+            backup::create_backup,
+            backup::restore_backup
         ])
         .plugin(
             tauri_plugin_sql::Builder::default()

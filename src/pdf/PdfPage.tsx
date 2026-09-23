@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
+import type { SearchMatch } from './search';
 import { TextLayer, type PDFDocumentProxy, type RenderTask } from 'pdfjs-dist';
 import { normalizeRect, rotateRect, mergeTextRects } from '../lib/coordinates';
 import type { Annotation, AnnotationType, NormalizedRect, ReaderTool } from '../types';
@@ -7,12 +8,16 @@ export interface SelectionDraft { page: number; rects: NormalizedRect[]; text: s
 interface Props {
   pdf: PDFDocumentProxy; page: number; width: number; height: number; rotation: number;
   annotations?: Annotation[]; mode?: ReaderTool; thumbnail?: boolean;
+  searchMatch?: SearchMatch|null;
   focusedAnnotation?: {id:string;version:number}|null;
   onSelection?: (draft: SelectionDraft) => void; onAnnotation?: (id: string) => void;
 }
 
 /** Renders one visible page with a HiDPI canvas, selectable text and normalized overlays. */
-export function PdfPage({ pdf,page,width,height,rotation,annotations = [],mode = 'select',thumbnail = false,focusedAnnotation,onSelection,onAnnotation }: Props) {
+export function PdfPage({ pdf,page,width,height,rotation,annotations = [],mode = 'select',thumbnail = false,searchMatch,focusedAnnotation,onSelection,onAnnotation }: Props) {
+  const [renderedText,setRenderedText]=useState<TextLayer|null>(null);
+  const [searchRects,setSearchRects]=useState<Array<{left:number;top:number;width:number;height:number}>>([]);
+  const markerRef=useRef<HTMLSpanElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -28,7 +33,7 @@ export function PdfPage({ pdf,page,width,height,rotation,annotations = [],mode =
     let textLayer: TextLayer | undefined;
     const canvas = canvasRef.current;
     const container = textRef.current;
-    setError(null);
+    setError(null);setRenderedText(null);
     void (async () => {
       const pdfPage = await pdf.getPage(page);
       if (!active || !canvas || !container) return;
@@ -51,9 +56,24 @@ export function PdfPage({ pdf,page,width,height,rotation,annotations = [],mode =
       textLayer = new TextLayer({ textContentSource: await pdfPage.getTextContent(), container, viewport });
       if (!active) return;
       await textLayer.render();
+      if(active)setRenderedText(textLayer);
     })().catch((reason: unknown) => { if (active) setError(reason instanceof Error ? reason.message : String(reason)); });
     return () => { active = false; render?.cancel(); textLayer?.cancel(); };
   },[pdf,page,width,height,rotation,thumbnail]);
+
+  useEffect(()=>{
+    const root=rootRef.current;
+    if(!renderedText||!root||!searchMatch||searchMatch.page!==page){setSearchRects([]);return;}
+    const bounds=root.getBoundingClientRect();
+    const rects=searchMatch.parts.flatMap(part=>{
+      const element=renderedText.textDivs[part.item];const node=element?.firstChild;
+      if(!node||node.nodeType!==Node.TEXT_NODE)return [];
+      const range=document.createRange();range.setStart(node,part.start);range.setEnd(node,part.end);
+      // DOM range coordinates are viewport pixels; subtract page origin for a transient page-local overlay.
+      return Array.from(range.getClientRects()).map(rect=>({left:rect.left-bounds.left,top:rect.top-bounds.top,width:rect.width,height:rect.height}));
+    });setSearchRects(rects);
+  },[renderedText,searchMatch,page]);
+  useEffect(()=>{if(searchRects.length)markerRef.current?.scrollIntoView({block:'center',inline:'nearest'});},[searchRects]);
 
   const point = (event: PointerEvent<HTMLDivElement>): {x:number;y:number} => {
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -132,6 +152,7 @@ export function PdfPage({ pdf,page,width,height,rotation,annotations = [],mode =
             borderTop:edge===180?underline:undefined,borderRight:edge===270?underline:undefined}} />;
       }))}
     </div>
+    {searchRects.map((rect,index)=><span key={index} ref={index===0?markerRef:undefined} aria-hidden="true" className="pointer-events-none absolute bg-orange-400/40 outline outline-2 outline-orange-600" style={rect}/>)}
     {drag && <div className="pointer-events-none absolute border-2 border-teal-600 bg-teal-400/20" style={{left:drag.x,top:drag.y,width:drag.width,height:drag.height}} />}
     {error && <p role="alert" className="absolute inset-0 overflow-auto bg-white/90 p-4 text-sm text-red-700">第 {page} 页加载失败：{error}</p>}
   </div>;

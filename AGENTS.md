@@ -48,6 +48,6 @@
 ---
 
 ## 7. Safety & Constraints (DO NOTs)
-- **DO NOT** make any network requests in Phase 1 (100% offline).
+- **DO NOT** make background network requests in Phase 1. User-authorized exception (2026-09-23): an explicit arXiv download/import action may fetch PDFs from arxiv.org over HTTPS. Reading, metadata extraction, notes and backups remain local; no AI, translation, telemetry or cloud sync.
 - **DO NOT** block the UI thread during PDF loading or SHA-256 hash calculation (use Web Workers or Tauri Rust background commands).
 - **DO NOT** load all PDF pages into the DOM at once; utilize virtualized rendering for long papers (>20 pages).

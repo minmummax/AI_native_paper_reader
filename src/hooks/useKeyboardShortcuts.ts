@@ -6,6 +6,7 @@ interface ShortcutActions {
   toggleRight: () => void;
   toggleFocus: () => void;
   exitFocus: () => void;
+  findInPdf: () => void;
   focusSearch: () => void;
 }
 
@@ -17,8 +18,10 @@ interface ShortcutActions {
 export function useKeyboardShortcuts(actions: ShortcutActions): void {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent): void => {
+      if(document.querySelector('[aria-modal="true"]'))return;
       if (event.defaultPrevented || event.repeat || event.isComposing) return;
       if(hasPrimaryModifier(event)&&!event.altKey&&!event.shiftKey&&event.code==='KeyK'){event.preventDefault();actions.focusSearch();return;}
+      if(hasPrimaryModifier(event)&&!event.altKey&&!event.shiftKey&&event.code==='KeyF'){event.preventDefault();actions.findInPdf();return;}
       const target = event.target;
       if (target instanceof HTMLElement && (target.isContentEditable || target.closest('input, textarea, select'))) return;
       if (event.key === 'F11' && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {

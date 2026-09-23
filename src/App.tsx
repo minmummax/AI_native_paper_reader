@@ -3,6 +3,11 @@ import { isTauri,invoke } from '@tauri-apps/api/core';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { BookOpen,ChevronLeft,ChevronRight,FolderOpen,Maximize,PanelLeft,PanelRight,RotateCw,Search,ShieldCheck,Upload,X } from 'lucide-react';
 import type { Annotation,Note,Paper,ReaderTool } from './types';
+import { ArxivImportDialog } from './components/ArxivImportDialog';
+import { BackupDialog } from './components/BackupDialog';
+import { PdfSearch } from './components/PdfSearch';
+import type { SearchMatch } from './pdf/search';
+import { writeDraft } from './services/drafts';
 import { WindowControls } from './components/WindowControls';
 import { DocumentNavigation } from './components/DocumentNavigation';
 import { NotesPanel } from './components/NotesPanel';
@@ -20,6 +25,9 @@ import 'pdfjs-dist/web/pdf_viewer.css';
 
 /** Offline library and virtualized reader with persisted annotations, notes and local organization. */
 export function App() {
+  const [arxivOpen,setArxivOpen]=useState(false);const arxivBusy=useRef(false);
+  const [backupOpen,setBackupOpen]=useState(false);const backupBusy=useRef(false);
+  const [findOpen,setFindOpen]=useState(false);const [searchMatch,setSearchMatch]=useState<SearchMatch|null>(null);
   const [leftOpen,setLeftOpen]=useState(()=>window.matchMedia('(min-width: 1024px)').matches);
   const [rightOpen,setRightOpen]=useState(()=>window.matchMedia('(min-width: 1024px)').matches);
   const [focusMode,setFocusMode]=useState(false);const [leftTab,setLeftTab]=useState<'shelf'|'outline'>('shelf');
@@ -47,11 +55,12 @@ export function App() {
   const toggleRight=useCallback(()=>{setRightOpen(open=>!open);if(!window.matchMedia('(min-width: 1024px)').matches)setLeftOpen(false);},[]);
   const toggleFocus=useCallback(()=>setFocusMode(value=>!value),[]);const exitFocus=useCallback(()=>setFocusMode(false),[]);
   const focusSearch=useCallback(()=>{setFocusMode(false);setLeftOpen(true);setLeftTab('shelf');if(!window.matchMedia('(min-width: 1024px)').matches)setRightOpen(false);window.requestAnimationFrame(()=>{searchRef.current?.focus();searchRef.current?.select();});},[]);
-  const actions=useMemo(()=>({toggleLeft,toggleRight,toggleFocus,exitFocus,focusSearch}),[toggleLeft,toggleRight,toggleFocus,exitFocus,focusSearch]);useKeyboardShortcuts(actions);
+  const findInPdf=useCallback(()=>{setFindOpen(true);setFocusMode(false);if(!window.matchMedia('(min-width: 1024px)').matches){setLeftOpen(false);setRightOpen(false);}window.requestAnimationFrame(()=>document.getElementById('pdf-find-input')?.focus());},[]);
+  const actions=useMemo(()=>({toggleLeft,toggleRight,toggleFocus,exitFocus,focusSearch,findInPdf}),[toggleLeft,toggleRight,toggleFocus,exitFocus,focusSearch,findInPdf]);useKeyboardShortcuts(actions);
   const selectPaper=useCallback((paper:Paper)=>{
     if(activeRef.current===paper.id){setActive(paper);return;}
-    if(dirty&&!window.confirm('当前笔记尚未保存，是否放弃草稿并切换论文？'))return;
-    setDirty(false);setActive(paper);setPage(paper.last_read_page??1);setZoom(1);setRotation(0);setMode('select');setAnchor(null);setAnnotations([]);setNotes([]);
+    if(dirty&&!window.confirm('当前草稿自动保存失败，是否仍然切换论文？'))return;
+    setSearchMatch(null);setFindOpen(false);setDirty(false);setActive(paper);setPage(paper.last_read_page??1);setZoom(1);setRotation(0);setMode('select');setAnchor(null);setAnnotations([]);setNotes([]);
     void library.saveSetting('active_paper',paper.id).catch(report);
   },[dirty,report]);
   useEffect(()=>{setPageInput(String(page));},[page]);
@@ -92,8 +101,14 @@ export function App() {
     const listener=(event:BeforeUnloadEvent):void=>{if(dirty){event.preventDefault();event.returnValue='';}};
     window.addEventListener('beforeunload',listener);return()=>window.removeEventListener('beforeunload',listener);
   },[dirty]);
+  useEffect(()=>{
+    if(!isTauri())return;
+    let stopped=false;let dispose:(()=>void)|undefined;
+    void getCurrentWebviewWindow().onCloseRequested(event=>{if(backupBusy.current||arxivBusy.current){event.preventDefault();setNotice('文件操作进行中，请完成或取消后再关闭');}else if(dirty&&!window.confirm('草稿自动保存失败，仍然关闭窗口？')){event.preventDefault();}}).then(unlisten=>{if(stopped)unlisten();else dispose=unlisten;}).catch(report);
+    return()=>{stopped=true;dispose?.();};
+  },[report,dirty]);
   const importPaths=useCallback(async(paths:string[])=>{
-    if(busyRef.current||!paths.length)return;busyRef.current=true;cancelImport.current=false;setBusy(true);setError('');
+    if(busyRef.current||backupBusy.current||!paths.length)return;busyRef.current=true;cancelImport.current=false;setBusy(true);setError('');
     let success=0;const failures:string[]=[];let last:Paper|undefined;
     try{
       for(const [index,path] of paths.entries()){
@@ -122,6 +137,7 @@ export function App() {
     return()=>{stopped=true;dispose?.();};
   },[database.state,importPaths,report]);
   const jump=useCallback((next:number)=>{if(Number.isFinite(next))reader.current?.jumpTo(next);},[]);
+  const showMatch=useCallback((match:SearchMatch|null)=>{setSearchMatch(match);if(match)reader.current?.jumpTo(match.page);},[]);
   const jumpToAnnotation=useCallback((id:string)=>{
     const annotation=annotations.find(item=>item.id===id);
     if(!annotation)return;
@@ -142,6 +158,7 @@ export function App() {
     if(!deletePending)return;
     const {kind,id}=deletePending;
     try{await library.deleteRecord(kind,id);setDeletePending(null);setRevision(value=>value+1);
+      if(kind==='paper')writeDraft(id,null);
       if(kind==='paper'&&active?.id===id){setActive(null);setDirty(false);await library.saveSetting('active_paper','');}
       if(kind==='annotation'&&anchor?.id===id)setAnchor(null);
       if(kind==='tag'||kind==='collection')setFilter({});
@@ -165,6 +182,8 @@ export function App() {
       <button className="icon-button" aria-label="快速检索论文" title={`${modifier}+K 检索论文`} onClick={focusSearch}><Search size={17}/></button>
       <button className="icon-button" aria-label="导入 PDF" title="导入 PDF" disabled={!ready||busy} onClick={()=>{void choose(false);}}><Upload size={17}/></button>
       <button className="icon-button" aria-label="打开文件夹" title="扫描文件夹" disabled={!ready||busy} onClick={()=>{void choose(true);}}><FolderOpen size={17}/></button>
+      <button className="small-button" disabled={!ready||busy} onClick={()=>setArxivOpen(true)}>arXiv 导入</button>
+      <button className="small-button" disabled={!ready||busy} onClick={()=>setBackupOpen(true)}>备份</button>
       <button className="icon-button" aria-label="进入专注模式" title="专注模式 (F11)" onClick={toggleFocus}><Maximize size={17}/></button>
       <button className="icon-button" aria-label="切换笔记与标注" aria-expanded={rightVisible} title={`笔记 (${modifier}+Shift+B)`} onClick={toggleRight}><PanelRight size={19}/></button><WindowControls/>
     </header>}
@@ -189,8 +208,10 @@ export function App() {
             <select aria-label="标注工具" className="rounded border p-1 text-xs" value={mode} onChange={event=>{window.getSelection()?.removeAllRanges();setMode(event.target.value as ReaderTool);}}><option value="select">选择文字（不标注）</option><option value="highlight">文字高亮</option><option value="underline">下划线</option><option value="area">区域框选</option></select>
             <div className="flex gap-1" aria-label="标注颜色">{['#FFE066','#86EFAC','#93C5FD','#F9A8D4'].map(value=><button key={value} className={`h-5 w-5 rounded-full border-2 ${value===color?'border-slate-600':'border-white'}`} style={{backgroundColor:value}} aria-label={`颜色 ${value}`} aria-pressed={value===color} onClick={()=>setColor(value)}/>)}</div>
           </div>}
-          <PdfReader key={active.id} ref={reader} pdf={pdf} zoom={zoom} rotation={rotation} initialPage={active.last_read_page??1} annotations={annotations} mode={mode} onError={report} onPage={onPage} onSelection={onSelection} onAnnotation={id=>{setAnchor(annotations.find(item=>item.id===id)??null);setRightOpen(true);}}/>
-        </>:active?<div className="flex flex-1 items-center justify-center p-8 text-sm text-slate-500">{loading?'正在加载本地 PDF…':pdfError||'正在准备阅读器…'}</div>:<div className="flex flex-1 flex-col items-center justify-center overflow-auto px-6 py-12 text-center"><div className="mb-7 flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border border-stone-200 bg-white text-teal-700 shadow-sm"><BookOpen size={34} strokeWidth={1.4}/></div><h1 className="text-xl font-semibold sm:text-2xl">拖入 PDF 开始阅读</h1><p className="mt-3 text-sm leading-7 text-slate-500">让论文、标注与想法，留在同一个地方。</p><div className="mt-7 flex flex-wrap justify-center gap-3"><button className="primary-button" disabled={!ready||busy} onClick={()=>{void choose(false);}}>选择 PDF</button><button className="small-button border bg-white" disabled={!ready||busy} onClick={()=>{void choose(true);}}>打开文件夹</button></div><p className="mt-5 text-xs leading-6 text-slate-400">{ready?'支持多文件与文件夹拖入 · 自动去重 · 完全离线':'浏览器仅预览布局，请在桌面应用中导入 PDF'}</p></div>}
+          {!focusMode&&<button className="small-button self-end mr-3" title={`${modifier}+F`} onClick={findInPdf}>查找正文</button>}
+          {findOpen&&<PdfSearch key={active.id} pdf={pdf} onMatch={showMatch} onClose={()=>{setFindOpen(false);setSearchMatch(null);}}/>}
+          <PdfReader searchMatch={searchMatch} key={active.id} ref={reader} pdf={pdf} zoom={zoom} rotation={rotation} initialPage={active.last_read_page??1} annotations={annotations} mode={mode} onError={report} onPage={onPage} onSelection={onSelection} onAnnotation={id=>{setAnchor(annotations.find(item=>item.id===id)??null);setRightOpen(true);}}/>
+        </>:active?<div className="flex flex-1 items-center justify-center p-8 text-sm text-slate-500">{loading?'正在加载本地 PDF…':pdfError||'正在准备阅读器…'}</div>:<div className="flex flex-1 flex-col items-center justify-center overflow-auto px-6 py-12 text-center"><div className="mb-7 flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border border-stone-200 bg-white text-teal-700 shadow-sm"><BookOpen size={34} strokeWidth={1.4}/></div><h1 className="text-xl font-semibold sm:text-2xl">拖入 PDF 开始阅读</h1><p className="mt-3 text-sm leading-7 text-slate-500">让论文、标注与想法，留在同一个地方。</p><div className="mt-7 flex flex-wrap justify-center gap-3"><button className="primary-button" disabled={!ready||busy} onClick={()=>{void choose(false);}}>选择 PDF</button><button className="small-button border bg-white" disabled={!ready||busy} onClick={()=>{void choose(true);}}>打开文件夹</button></div><p className="mt-5 text-xs leading-6 text-slate-400">{ready?'支持文件拖入与 arXiv 链接导入 · 本地保存 · 自动去重':'浏览器仅预览布局，请在桌面应用中导入 PDF'}</p></div>}
       </main>
       {rightVisible&&<PanelResizer side="right" width={displayedRight} min={260} max={rightMax} onChange={setRightWidth} onReset={()=>setRightWidth(320)}/>}
       <aside aria-label="笔记与标注" className={`${rightVisible?'flex':'hidden'} absolute inset-y-0 right-0 z-20 right-panel-width max-w-[85vw] shrink-0 flex-col border-l border-stone-200 bg-white shadow-xl lg:static lg:shadow-none`}>
@@ -200,8 +221,10 @@ export function App() {
           onDelete={(kind,id)=>setDeletePending({kind,id})} onMembership={(kind,id,enabled)=>{void library.setMembership(active.id,kind,id,enabled).then(()=>refreshDetails(active.id)).then(()=>setRevision(value=>value+1)).catch(report);}}/>:<p className="px-6 pt-20 text-center text-xs leading-7 text-slate-400">打开一份论文，<br/>开始记录思考与问题。</p>}
       </aside>
     </div>
-    {!focusMode&&<footer role="status" className={`flex shrink-0 items-center gap-2 border-t border-stone-200 bg-white px-4 py-2 text-xs ${database.state==='error'?'text-red-700':'text-slate-500'}`}><span className={`h-1.5 w-1.5 shrink-0 rounded-full ${ready?'bg-teal-600':'bg-amber-500'}`}/><span className="min-w-0 flex-1 truncate" title={notice||database.message}>{notice||database.message}</span>{busy&&<button className="underline" onClick={()=>{cancelImport.current=true;}}>停止导入</button>}{database.state==='error'&&<button className="underline" onClick={()=>setAttempt(value=>value+1)}>重试</button>}<span className="hidden shrink-0 text-stone-400 xl:inline">{modifier}+B 书架 · {modifier}+Shift+B 笔记 · F11 专注</span></footer>}
+    {!focusMode&&<footer role="status" className={`flex shrink-0 items-center gap-2 border-t border-stone-200 bg-white px-4 py-2 text-xs ${database.state==='error'?'text-red-700':'text-slate-500'}`}><span className={`h-1.5 w-1.5 shrink-0 rounded-full ${ready?'bg-teal-600':'bg-amber-500'}`}/><span className="min-w-0 flex-1 truncate" title={notice||database.message}>{notice||database.message}</span>{busy&&!arxivOpen&&<button className="underline" onClick={()=>{cancelImport.current=true;}}>停止导入</button>}{database.state==='error'&&<button className="underline" onClick={()=>setAttempt(value=>value+1)}>重试</button>}<span className="hidden shrink-0 text-stone-400 xl:inline">{modifier}+B 书架 · {modifier}+Shift+B 笔记 · F11 专注</span></footer>}
     {focusMode&&<div className="fixed bottom-5 left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 rounded-full border bg-white px-4 py-2 text-xs shadow-sm">{pdf&&<><button aria-label="上一页" onClick={()=>jump(page-1)}>‹</button><span>{page} / {pdf.numPages}</span><button aria-label="下一页" onClick={()=>jump(page+1)}>›</button></>}<button onClick={exitFocus}>退出专注</button></div>}
+    {arxivOpen&&<ArxivImportDialog onClose={()=>setArxivOpen(false)} onBusy={value=>{arxivBusy.current=value;busyRef.current=value;setBusy(value);}} onImported={paper=>{setRevision(value=>value+1);selectPaper(paper);setNotice('arXiv 论文已保存到本机，可离线阅读');}}/>}
+    {backupOpen&&<BackupDialog onBusy={value=>{backupBusy.current=value;}} onClose={()=>setBackupOpen(false)}/>}
     {organizing&&<PaperOrganizer key={organizing.id} paper={organizing} tags={tags} collections={collections} onClose={()=>setOrganizing(null)} onGroupsChanged={()=>setRevision(value=>value+1)} onUpdated={paper=>{setOrganizing(paper);setActive(current=>current?.id===paper.id?{...current,title:paper.title,source_name:paper.source_name}:current);setRevision(value=>value+1);}}/>}
     {deletePending&&<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-6"><div role="alertdialog" aria-modal="true" aria-labelledby="delete-title" className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl"><h2 id="delete-title" className="font-semibold">确认删除？</h2><p className="my-4 text-sm leading-6 text-slate-500">{deletePending.kind==='paper'?'将移除书架记录及其笔记和标注。原始 PDF 与托管副本会保留。':deletePending.kind==='annotation'?'删除标注后，关联笔记会保留并解除关联。':'此记录将从本地数据库删除。'}</p><div className="flex justify-end gap-3"><button autoFocus className="small-button" onClick={()=>setDeletePending(null)}>取消</button><button className="rounded-lg bg-red-700 px-4 py-2 text-xs text-white" onClick={()=>{void remove();}}>确认删除</button></div></div></div>}
   </div>;

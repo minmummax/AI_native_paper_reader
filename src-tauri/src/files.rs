@@ -11,7 +11,7 @@ const MAX_BYTES: u64 = 250 * 1024 * 1024;
 
 #[derive(Serialize)]
 pub struct ImportedFile {
-    id: String,
+    pub(crate) id: String,
     file_path: String,
     file_size: u64,
     name: String,
@@ -20,7 +20,7 @@ pub struct ImportedFile {
 
 /// Streams a PDF into managed storage while hashing, without blocking the UI thread.
 /// Content-addressed storage preserves references even if the source moves or disappears.
-fn copy_pdf(source: &Path, directory: &Path) -> Result<ImportedFile, String> {
+pub(crate) fn copy_pdf(source: &Path, directory: &Path) -> Result<ImportedFile, String> {
     let mut input = File::open(source).map_err(|e| format!("无法打开文件：{e}"))?;
     let metadata = input.metadata().map_err(|e| e.to_string())?;
     if !metadata.is_file() || metadata.len() > MAX_BYTES {

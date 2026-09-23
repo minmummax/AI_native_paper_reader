@@ -51,8 +51,19 @@ export async function renamePaper(id:string,title:string):Promise<Paper> {
 
 /** @param filePath User-selected path. @returns Deduplicated paper after worker metadata extraction and SQLite persistence. */
 export async function importPaper(filePath: string): Promise<Paper> {
-  const db = await initializeDatabase();
   const file = await invoke<ImportedFile>('prepare_import', { filePath });
+  return persistImportedPaper(file);
+}
+
+/** @param input User-provided arXiv paper link or identifier. @param requestId Download progress/cancellation ID. @returns Deduplicated, locally persisted paper. */
+export async function importArxiv(input:string,requestId:string):Promise<Paper> {
+  const file=await invoke<ImportedFile>('download_arxiv',{input,requestId});
+  return persistImportedPaper(file);
+}
+
+/** @param file Prepared managed PDF. @returns Metadata and a deduplicated local shelf record. */
+async function persistImportedPaper(file:ImportedFile):Promise<Paper> {
+  const db = await initializeDatabase();
   const existing = await db.select<PaperRow[]>('SELECT * FROM papers WHERE id=$1', [file.id]);
   if (existing[0]) {
     // Re-import can recover filenames for legacy records without resetting titles, notes or tags.

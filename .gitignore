@@ -18,3 +18,6 @@ __pycache__/
 
 # Generated offline PDF font/CMap resources
 public/pdfjs/
+
+# Generated local installer artifacts
+releases/**/*.dmg
