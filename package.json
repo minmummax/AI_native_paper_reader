@@ -7,7 +7,9 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/*.test.mjs && python3 -m unittest discover -s tests -v",
+    "test": "node scripts/test.mjs",
+    "release:mac": "tauri build --bundles app,dmg",
+    "release:windows": "tauri build --target x86_64-pc-windows-msvc --bundles nsis",
     "tauri": "tauri",
     "predev": "node scripts/copy-pdf-assets.mjs",
     "prebuild": "node scripts/copy-pdf-assets.mjs"
@@ -15,10 +17,15 @@
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-sql": "^2.0.0",
+    "katex": "^0.16.47",
     "lucide-react": "^0.468.0",
     "pdfjs-dist": "^4.10.38",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "react-markdown": "^9.1.0",
+    "rehype-katex": "^7.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0",

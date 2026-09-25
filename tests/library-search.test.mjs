@@ -16,7 +16,7 @@ test('production query matches names, filenames, authors, years, notes and class
     [{tagId:'t'},['p1']], [{collectionId:'c',query:'Ada'},['p1']],
     [{tagId:'t',query:'Chen'},[]], [{untagged:true,sort:'year'},['p3','p2']],
   ];
-  const output=execFileSync('python3',[fileURLToPath(new URL('./search_fixture.py',import.meta.url))],{input:JSON.stringify(cases.map(([filter])=>buildPaperSearch(filter))),encoding:'utf8'});
+  const output=execFileSync(process.env.PYTHON ?? (process.platform==='win32'?'python':'python3'),[fileURLToPath(new URL('./search_fixture.py',import.meta.url))],{input:JSON.stringify(cases.map(([filter])=>buildPaperSearch(filter))),encoding:'utf8'});
   const results=JSON.parse(output);
   cases.forEach(([filter,expected],index)=>assert.deepEqual(results[index].map(row=>row.id),expected,JSON.stringify(filter)));
   assert.equal(JSON.parse(results[0][0].tags_json)[0].name,'视觉');

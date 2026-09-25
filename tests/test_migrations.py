@@ -24,7 +24,12 @@ class MigrationTests(unittest.TestCase):
         try:
             expected.executescript(design_sql)
             query = "SELECT type,name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name"
-            self.assertEqual(self.db.execute(query).fetchall(), expected.execute(query).fetchall())
+            # SQL comments document intent and may evolve independently of released migrations.
+            # Preserve the structural comparison while excluding comment/whitespace-only changes.
+            def schema(connection):
+                return [(kind, name, re.sub(r'\s+', ' ', re.sub(r'--[^\n]*', '', sql)).strip())
+                        for kind, name, sql in connection.execute(query).fetchall()]
+            self.assertEqual(schema(self.db), schema(expected))
         finally:
             expected.close()
 
@@ -106,6 +111,26 @@ class CollectionMigrationTests(unittest.TestCase):
             db.execute("DELETE FROM collections WHERE id='c'")
             self.assertEqual(db.execute('SELECT count(*) FROM paper_collections').fetchone()[0], 0)
             self.assertEqual(db.execute('SELECT count(*) FROM papers').fetchone()[0], 1)
+        finally:
+            db.close()
+
+
+class AiUsageMigrationTests(unittest.TestCase):
+    def test_usage_upgrade_preserves_notes_and_rejects_invalid_counters(self):
+        db = sqlite3.connect(':memory:')
+        try:
+            for migration in sorted((ROOT / 'src-tauri' / 'migrations').glob('*.sql')):
+                db.executescript(migration.read_text())
+                if migration.name.startswith('0001'):
+                    db.execute("INSERT INTO papers(id,title,file_path,file_size,total_pages) VALUES ('p','Existing','p.pdf',10,2)")
+                    db.execute("INSERT INTO notes(id,paper_id,content_markdown) VALUES ('n','p','keep me')")
+            self.assertEqual(db.execute('SELECT content_markdown FROM notes').fetchone()[0], 'keep me')
+            columns = {row[1] for row in db.execute('PRAGMA table_info(ai_usage)')}
+            self.assertFalse(columns & {'api_key', 'prompt', 'response', 'paper_id', 'content'})
+            with self.assertRaises(sqlite3.IntegrityError):
+                db.execute("INSERT INTO ai_usage(request_id,provider,model,status,input_tokens) VALUES ('bad','A','B','succeeded',-1)")
+            db.execute("INSERT INTO ai_usage(request_id,provider,model,status) VALUES ('ok','A','B','cancelled')")
+            self.assertEqual(db.execute('SELECT input_tokens,output_tokens FROM ai_usage').fetchone(), (None, None))
         finally:
             db.close()
 

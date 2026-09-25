@@ -1,9 +1,11 @@
 export interface LibraryFilter {
   query?: string;
   tagId?: string;
+  tagIds?: string[];
   collectionId?: string;
   untagged?: boolean;
-  sort?: 'recent' | 'title' | 'year';
+  sort?: 'recent' | 'title' | 'year' | 'added';
+  direction?: 'asc' | 'desc';
 }
 export interface SqlQuery { sql: string; params: (string | number | null)[] }
 
@@ -27,10 +29,11 @@ export function buildPaperSearch(filter: LibraryFilter = {}): SqlQuery {
       OR EXISTS (SELECT 1 FROM paper_collections pc JOIN collections c ON c.id=pc.collection_id WHERE pc.paper_id=p.id AND c.name LIKE ${value} ESCAPE '\\')
     )`;
   });
-  if(filter.tagId)conditions.push(`EXISTS (SELECT 1 FROM paper_tags pt WHERE pt.paper_id=p.id AND pt.tag_id=${bind(filter.tagId)})`);
+  for(const id of new Set([...(filter.tagIds??[]),...(filter.tagId?[filter.tagId]:[])]))conditions.push(`EXISTS (SELECT 1 FROM paper_tags pt WHERE pt.paper_id=p.id AND pt.tag_id=${bind(id)})`);
   if(filter.collectionId)conditions.push(`EXISTS (SELECT 1 FROM paper_collections pc WHERE pc.paper_id=p.id AND pc.collection_id=${bind(filter.collectionId)})`);
   if(filter.untagged)conditions.push('NOT EXISTS (SELECT 1 FROM paper_tags pt WHERE pt.paper_id=p.id)');
-  const order=filter.sort==='title'?'p.title COLLATE NOCASE ASC':filter.sort==='year'?'p.year DESC, p.title COLLATE NOCASE':'p.last_read_at DESC, p.created_at DESC';
+  const direction=filter.direction==='asc'?'ASC':'DESC';
+  const order=filter.sort==='title'?`p.title COLLATE NOCASE ${filter.direction==='desc'?'DESC':'ASC'}`:filter.sort==='year'?`p.year ${direction}, p.title COLLATE NOCASE`:filter.sort==='added'?`p.created_at ${direction}`:`p.last_read_at ${direction}, p.created_at DESC`;
   return {sql:`SELECT p.*,
     (SELECT json_group_array(json_object('id',t.id,'name',t.name,'color',t.color)) FROM paper_tags pt JOIN tags t ON t.id=pt.tag_id WHERE pt.paper_id=p.id) AS tags_json
     FROM papers p ${conditions.length?`WHERE ${conditions.join(' AND ')}`:''} ORDER BY ${order},p.id`,params};

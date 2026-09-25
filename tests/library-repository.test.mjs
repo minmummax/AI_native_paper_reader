@@ -23,7 +23,7 @@ const repository=await import(`data:text/javascript;base64,${Buffer.from(compile
 test('rename, create-and-assign tags, classification search and note links survive repository reload',async()=>{
   const root=await mkdtemp(join(tmpdir(),'paper-reader-repository-'));
   const path=join(root,'test.db');
-  const call=(operation,sql='',params=[])=>JSON.parse(execFileSync('python3',[fileURLToPath(new URL('./repository_sqlite.py',import.meta.url)),path],{encoding:'utf8',input:JSON.stringify({operation,sql,params})}));
+  const call=(operation,sql='',params=[])=>JSON.parse(execFileSync(process.env.PYTHON ?? (process.platform==='win32'?'python':'python3'),[fileURLToPath(new URL('./repository_sqlite.py',import.meta.url)),path],{encoding:'utf8',input:JSON.stringify({operation,sql,params})}));
   const oldCrypto=globalThis.crypto;
   globalThis.crypto??=webcrypto;
   globalThis.__repositoryDb={select:async(sql,params)=>call('select',sql,params),execute:async(sql,params)=>call('execute',sql,params)};
@@ -41,6 +41,11 @@ test('rename, create-and-assign tags, classification search and note links survi
     assert.equal((await repository.getPapers({query:'Original 机器学习'}))[0].tags[0].name,'机器学习');
     assert.equal((await repository.getGroups()).tags[0].paper_count,1);
     assert.equal((await repository.getPapers({untagged:true})).length,0);
+    const secondTag=await repository.createGroup('tag','语言模型');
+    await repository.setMembership('paper','tag',secondTag,true);
+    assert.equal((await repository.getPapers({tagIds:[tag,secondTag]})).length,1);
+    assert.equal((await repository.getPapers({tagIds:[tag,'absent']})).length,0);
+    await repository.setMembership('paper','tag',secondTag,false);
     const annotation=await repository.saveAnnotation({paper_id:'paper',page_number:3,type:'underline',color:'#FFE066',selected_text:'selection',rects:[{x:0.1,y:0.2,width:0.5,height:0.03,page:3}]});
     await repository.saveNote({paper_id:'paper',annotation_id:annotation.id,page_number:3,note_type:'question',content_markdown:'Does this improve accuracy?'});
     assert.equal((await repository.getPapers({query:'accuracy'})).length,1);

@@ -11,10 +11,11 @@ interface Props {
   searchMatch?: SearchMatch|null;
   focusedAnnotation?: {id:string;version:number}|null;
   onSelection?: (draft: SelectionDraft) => void; onAnnotation?: (id: string) => void;
+  onTextSelection?: (draft: Omit<SelectionDraft, 'type'>) => void;
 }
 
 /** Renders one visible page with a HiDPI canvas, selectable text and normalized overlays. */
-export function PdfPage({ pdf,page,width,height,rotation,annotations = [],mode = 'select',thumbnail = false,searchMatch,focusedAnnotation,onSelection,onAnnotation }: Props) {
+export function PdfPage({ pdf,page,width,height,rotation,annotations = [],mode = 'select',thumbnail = false,searchMatch,focusedAnnotation,onSelection,onAnnotation,onTextSelection }: Props) {
   const [renderedText,setRenderedText]=useState<TextLayer|null>(null);
   const [searchRects,setSearchRects]=useState<Array<{left:number;top:number;width:number;height:number}>>([]);
   const markerRef=useRef<HTMLSpanElement>(null);
@@ -92,7 +93,7 @@ export function PdfPage({ pdf,page,width,height,rotation,annotations = [],mode =
         const hit=annotations.find(annotation=>annotation.rects.some(stored=>{const rect=rotateRect(stored,rotation);return x>=rect.x&&x<=rect.x+rect.width&&y>=rect.y&&y<=rect.y+rect.height;}));
         if(hit)onAnnotation?.(hit.id);
       }
-      return;
+      if (!window.getSelection()?.toString().trim()) return;
     }
     if (mode === 'area' && start.current) {
       const end = point(event); const begin = start.current; start.current = null; setDrag(null);
@@ -127,6 +128,10 @@ export function PdfPage({ pdf,page,width,height,rotation,annotations = [],mode =
     }
     if (rects.length) {
       const text=selection.toString();
+      if (mode === 'select') {
+        onTextSelection?.({page,rects:mergeTextRects(rects,intrinsicRotation),text});
+        return;
+      }
       selection.removeAllRanges(); // Clear synchronously so another pointer-up cannot resave this selection.
       onSelection?.({page,rects:mergeTextRects(rects,intrinsicRotation),text,type:mode});
     }

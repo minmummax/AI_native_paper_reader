@@ -12,10 +12,11 @@ interface Props {
   searchMatch?:SearchMatch|null;
   onError: (error:unknown)=>void;
   onPage: (page: number) => void; onSelection: (draft: SelectionDraft) => void; onAnnotation: (id: string) => void;
+  onTextSelection?: (draft: Omit<SelectionDraft, 'type'>) => void;
 }
 
 /** Virtualizes PDF pages: only viewport rows plus one neighboring row are mounted. */
-export const PdfReader = forwardRef<ReaderHandle,Props>(function PdfReader({pdf,zoom,rotation,initialPage,annotations,mode,searchMatch,onPage,onSelection,onAnnotation,onError},ref) {
+export const PdfReader = forwardRef<ReaderHandle,Props>(function PdfReader({pdf,zoom,rotation,initialPage,annotations,mode,searchMatch,onPage,onSelection,onAnnotation,onError,onTextSelection},ref) {
   const scrollRef=useRef<HTMLDivElement>(null);
   const [size,setSize]=useState({width:800,height:800});
   const [ratio,setRatio]=useState(1.414);
@@ -91,7 +92,7 @@ export const PdfReader = forwardRef<ReaderHandle,Props>(function PdfReader({pdf,
   }}>
     <div className="relative" style={{height:rowHeight*pdf.numPages,width:Math.max(size.width,pageWidth+48)}}>
       {pages.map(page => <div key={`${page}-${rotation}-${zoom}`} data-pdf-page={page} className="absolute left-0 flex w-full flex-col items-center pt-3" style={{top:(page-1)*rowHeight,height:rowHeight}}>
-        <PdfPage searchMatch={searchMatch} pdf={pdf} page={page} width={pageWidth} height={pageHeight} rotation={rotation} annotations={annotations.filter(item => item.page_number===page)} mode={mode} focusedAnnotation={focused} onSelection={onSelection} onAnnotation={onAnnotation} />
+        <PdfPage searchMatch={searchMatch} pdf={pdf} page={page} width={pageWidth} height={pageHeight} rotation={rotation} annotations={annotations.filter(item => item.page_number===page)} mode={mode} focusedAnnotation={focused} onSelection={onSelection} onAnnotation={onAnnotation} onTextSelection={onTextSelection} />
         <span className="mt-1 text-[10px] text-slate-400">{page} / {pdf.numPages}</span>
       </div>)}
     </div>

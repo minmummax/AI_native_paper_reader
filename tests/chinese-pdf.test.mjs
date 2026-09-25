@@ -8,7 +8,7 @@ import {fileURLToPath} from 'node:url';
 // Node 18 test compatibility; the desktop WebView supplies this native API.
 Promise.withResolvers??=function(){let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no;});return {promise,resolve,reject};};
 const {getDocument}=await import('pdfjs-dist/build/pdf.mjs');
-const fixture=execFileSync('python3',[fileURLToPath(new URL('./generate_chinese_fixture.py',import.meta.url))],{encoding:'utf8'}).trim();
+const fixture=execFileSync(process.env.PYTHON ?? (process.platform==='win32'?'python':'python3'),[fileURLToPath(new URL('./generate_chinese_fixture.py',import.meta.url))],{encoding:'utf8'}).trim();
 const cmapDirectory=resolve('node_modules','pdfjs-dist','cmaps');
 
 async function extract(available){
