@@ -21,3 +21,7 @@ public/pdfjs/
 
 # Generated local installer artifacts
 releases/**/*.dmg
+releases/**/*.exe
+releases/**/*.msi
+releases/**/*.zip
+releases/**/*.app/

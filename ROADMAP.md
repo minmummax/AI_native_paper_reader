@@ -1,8 +1,9 @@
 # ROADMAP.md - Academic Paper Reader & Innovation Studio
 
-## 🟢 Phase 1: Local Reader & Personal Shelf (Current Milestone)
+## ✅ Phase 1: Local Reader & Personal Shelf (Feature Baseline Complete)
 > **Goal**: A blazing-fast, distraction-free local PDF reader with rich annotation support.
-> Checked items indicate implemented functionality, not full cross-platform acceptance. Phase 1 remains open pending the acceptance items below.
+> Checked items indicate implemented functionality. The remaining acceptance work continues alongside Phase 2A and does not block AI reading development.
+> Release gate: data persistence, backup/restore and close/relaunch regressions must pass on each platform targeted by a release.
 - [x] **Paper Shelf**:
   - [x] Local folder scanning & drag-and-drop PDF import.
   - [x] Automatic SHA-256 file hashing as unique Paper ID.
@@ -26,24 +27,60 @@
 
 ---
 
-## 🟡 Phase 2: AI Engine & Bilingual Split-View
-> **Goal**: Understand papers faster with layout-aware structural parsing and bilingual reading.
-- [ ] **Dual-Engine Document Parser**:
-  - [ ] *Fast Mode (Local)*: Rule-based text and structure extraction (instant, zero GPU).
-  - [ ] *Deep Mode (Cloud API)*: Call remote layout-parser APIs for complex tables/formulas.
-  - [ ] *Deep Mode (Local MinerU)*: Connect to local Python/MinerU service with GPU acceleration.
-- [ ] **Bilingual Split-View**:
-  - [ ] Left: Original PDF; Right: Parsed & translated Markdown page.
-  - [ ] Synchronized scrolling and paragraph alignment.
-- [ ] **Interactive AI Assistant**:
-  - [ ] Contextual chat based on selected paragraph, formula, or entire section.
-  - [ ] Multi-provider API config (OpenAI, Claude, DeepSeek, Local Ollama).
-  - [ ] Real-time token analytics and cost tracking.
+## 🟡 Phase 2A: Context-Aware AI Reading (Current Milestone)
+> **Goal**: Turn the existing local reader into an AI reading companion without adding a server or a RAG dependency.
+- [ ] **First Delivery: Selection/Page Reading**:
+  - [x] Typed Rust `AIProvider` interface and initial DeepSeek adapter with text-only input and explicit adapter limits; model name is configurable.
+  - [x] Implement OS credential storage for API keys and SQLite storage for the non-secret model preference; native end-to-end acceptance remains below.
+  - [x] Stream responses with cancellation, sanitized errors and optional token usage. Cost is explicitly unknown.
+  - [ ] Add versioned model pricing and estimated cost where reliable pricing is available.
+  - [x] Extract minimal in-memory page-aware evidence with content/revision-based IDs; retain normalized positions for selections and page-only provenance for page context. Paragraph grouping is deferred.
+  - [x] Build bounded selection context with locatable same-page surroundings; exclude private notes. Add selection translation/question toolbar.
+  - [x] Explain and Ask in a draggable/minimizable floating assistant, with validated source IDs and jump-back navigation.
+  - [x] Independent application settings for model credentials and automatic chat opening.
+  - [x] Render Markdown tables, code and math without raw HTML or remote image loading.
+  - [x] Local 7/30/90-day usage reports by day/model, including failed/cancelled attempts and unknown usage.
+  - [ ] Verify cancellation, provider errors, paper switching during streaming, context limits and citation validation; unavailable usage/cost must remain unknown rather than zero.
+  - [ ] Complete real-provider and native credential-store acceptance on release platforms. Offline tests and synthetic browser responses do not replace these checks.
+  - [x] Migration 5 persists user-requested selection translations/questions with source snapshots and deletion controls; backup v3 and older backup restore tests cover these records. General paper conversations remain in memory.
+  - [x] Migration 4 persists usage metadata; backup v2 merges usage by request ID and accepts older backups without this table.
+- [ ] **Incremental Phase 2A Extensions**:
+  - [x] Custom OpenAI-compatible base URL/model, optional endpoint-scoped credentials, LAN HTTP and configurable streaming usage requests.
+  - [ ] Extend adapters toward OpenAI, Gemini, Claude and DeepSeek; leave local providers as a compatible extension point. Supporting all four is not a first-delivery gate.
+  - [ ] Add current-section context with page fallback when TOC/heading structure is unreliable.
+  - [ ] Support full-paper requests through native PDF/file input where supported; offer an explicit bounded-text fallback otherwise.
+  - [x] Selection translation and query-aware whole-paper text evidence, with synthesis prompts, local extraction cache, 24/48 KB budgets and explicit coverage limits.
+  - [ ] Dedicated critique workflows and persistent reusable paper summaries; evaluate answer coverage on real long papers.
+  - [x] Add in-memory multi-turn chat with disclosed history scope, a six-pair/8000-byte budget and a history opt-out.
+  - [ ] Extend persistence from saved selection actions to optional whole-paper conversation sessions.
+  - [ ] Formula and figure questions may include a user-confirmed area screenshot plus nearby text.
 
 ---
 
-## 🔵 Phase 3: Research Innovation & Idea Synthesis
-> **Goal**: Turn reading insights into novel research contributions and new papers.
+## 🟠 Phase 2B: Bilingual Reading & Translation Memory
+> **Goal**: Provide stable, resumable bilingual reading while preserving page and paragraph alignment.
+- [ ] Refine the Phase 2A source blocks into paragraph/document blocks suitable for bilingual alignment; version extraction changes without retargeting existing evidence anchors.
+- [ ] Generate a paper-level terminology glossary from title, abstract and keywords as part of an explicit translation action.
+- [ ] Translate blocks through a cancellable queue; protect formulas, citations, variables, URLs and code.
+- [ ] Cache block translations locally with source/model/prompt/glossary version checks and render synchronized original/translated views.
+
+---
+
+## 🟤 Phase 2C: Optional Document Enhancement
+> **Goal**: Improve scanned and complex-layout papers without making deep parsing a prerequisite.
+- [ ] *Fast Local Mode*: PDF.js-based text, page, coordinate and TOC extraction remains the default.
+- [ ] Add user-triggered OCR/deep parsing only when local extraction quality is insufficient.
+- [ ] Evaluate cloud layout parsing and local MinerU as optional adapters; do not require a persistent FastAPI service.
+- [ ] Preserve stable page/block/bounding-box provenance when enhanced parsing is used.
+
+---
+
+## 🔵 Phase 3: Cross-Paper Intelligence & Idea Synthesis
+> **Goal**: Retrieve evidence across a growing library and turn reading insights into research ideas.
+- [ ] **Lightweight Cross-Paper Retrieval**:
+  - [ ] Start with SQLite FTS5/BM25 over paper metadata, document blocks and notes.
+  - [ ] Return paper/page/section citations and jump back to the original evidence.
+  - [ ] Add embeddings, hybrid fusion and reranking only after lexical retrieval quality is measured.
 - [ ] **Innovation Delta Extractor**:
   - [ ] Automatic identification of: *Baseline vs. Author's Core Novelty vs. Trade-offs*.
 - [ ] **Limitation Miner & Idea Canvas**:
@@ -57,6 +94,6 @@
 ## 🟣 Phase 4: Academic Ecosystem & Open Source Release
 > **Goal**: Open-source launch and integration with mainstream academic workflows.
 - [ ] Two-way synchronization with Zotero library and BibTeX files.
-- [ ] Local citation network and concept knowledge graph.
+- [ ] Local citation network and concept knowledge graph when simpler retrieval no longer covers the use case.
 - [ ] One-click export to LaTeX, Overleaf snippet, and Obsidian Markdown.
 - [ ] Community plugins and custom prompt templates.
