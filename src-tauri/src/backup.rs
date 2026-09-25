@@ -93,11 +93,33 @@ async fn snapshot(
             .await
             .map_err(|e| e.to_string())?;
         let mut snapshot = connect(&folder.join("library.sqlite"), true).await?;
+        let has_usage: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='ai_usage'",
+        )
+        .fetch_one(&mut snapshot)
+        .await
+        .map_err(|e| e.to_string())?;
+        let has_records: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='ai_records'",
+        )
+        .fetch_one(&mut snapshot)
+        .await
+        .map_err(|e| e.to_string())?;
         let papers_ids = ids(&mut snapshot).await?;
         copy_files(papers.to_path_buf(), folder.join("papers"), papers_ids).await?;
         fs::write(
             folder.join("manifest.json"),
-            serde_json::to_vec(&Manifest { version: 1, drafts }).map_err(|e| e.to_string())?,
+            serde_json::to_vec(&Manifest {
+                version: if has_records > 0 {
+                    3
+                } else if has_usage > 0 {
+                    2
+                } else {
+                    1
+                },
+                drafts,
+            })
+            .map_err(|e| e.to_string())?,
         )
         .map_err(|e| e.to_string())?;
         Ok::<(), String>(())
@@ -117,7 +139,7 @@ fn manifest(folder: &Path) -> Result<Manifest, String> {
     }
     let value: Manifest = serde_json::from_slice(&fs::read(path).map_err(|e| e.to_string())?)
         .map_err(|e| e.to_string())?;
-    if value.version != 1 || !value.drafts.is_object() {
+    if ![1, 2, 3].contains(&value.version) || !value.drafts.is_object() {
         return Err("不支持的备份版本".into());
     }
     Ok(value)
@@ -167,6 +189,46 @@ async fn restore(database: &Path, papers: &Path, folder: &Path) -> Result<(), St
     }
     let paper_ids = ids(&mut source).await?;
     let mut db = connect(database, false).await?;
+    // Usage is an append-only local ledger: merge backups by request ID, never erase newer use.
+    // Phase 1 backups have no ledger and must remain restorable without modifying current usage.
+    let incoming_usage = sqlx::query("PRAGMA table_info(ai_usage)")
+        .fetch_all(&mut source)
+        .await
+        .map_err(|e| e.to_string())?;
+    let has_usage = !incoming_usage.is_empty();
+    if has_usage {
+        let current_usage = sqlx::query("PRAGMA table_info(ai_usage)")
+            .fetch_all(&mut db)
+            .await
+            .map_err(|e| e.to_string())?;
+        let names = |rows: &[sqlx::sqlite::SqliteRow]| {
+            rows.iter()
+                .map(|row| row.get::<String, _>("name"))
+                .collect::<Vec<_>>()
+        };
+        if names(&incoming_usage) != names(&current_usage) {
+            return Err("备份数据库版本不兼容：ai_usage".into());
+        }
+    }
+    let incoming_records = sqlx::query("PRAGMA table_info(ai_records)")
+        .fetch_all(&mut source)
+        .await
+        .map_err(|e| e.to_string())?;
+    let has_records = !incoming_records.is_empty();
+    if has_records {
+        let current_records = sqlx::query("PRAGMA table_info(ai_records)")
+            .fetch_all(&mut db)
+            .await
+            .map_err(|e| e.to_string())?;
+        let names = |rows: &[sqlx::sqlite::SqliteRow]| {
+            rows.iter()
+                .map(|row| row.get::<String, _>("name"))
+                .collect::<Vec<_>>()
+        };
+        if names(&incoming_records) != names(&current_records) {
+            return Err("备份数据库版本不兼容：ai_records".into());
+        }
+    }
     // Compare columns before touching current rows; migration history itself is never restored.
     let mut columns = Vec::new();
     for table in TABLES {
@@ -225,6 +287,13 @@ async fn restore(database: &Path, papers: &Path, folder: &Path) -> Result<(), St
         .await
         .map_err(|e| e.to_string())?;
     }
+    // Paper deletion cascades to old selection records; older backups intentionally restore an empty history.
+    if has_records {
+        sqlx::query("INSERT INTO main.ai_records SELECT * FROM recovery.ai_records")
+            .execute(&mut *transaction)
+            .await
+            .map_err(|e| e.to_string())?;
+    }
     for id in paper_ids {
         sqlx::query("UPDATE papers SET file_path=? WHERE id=?")
             .bind(papers.join(format!("{id}.pdf")).to_string_lossy().as_ref())
@@ -232,6 +301,13 @@ async fn restore(database: &Path, papers: &Path, folder: &Path) -> Result<(), St
             .execute(&mut *transaction)
             .await
             .map_err(|e| e.to_string())?;
+    }
+    if has_usage {
+        sqlx::query("INSERT INTO main.ai_usage SELECT * FROM recovery.ai_usage WHERE true
+            ON CONFLICT(request_id) DO UPDATE SET status=excluded.status,finished_at=excluded.finished_at,
+            input_tokens=excluded.input_tokens,output_tokens=excluded.output_tokens
+            WHERE ai_usage.status='pending' AND excluded.status!='pending'")
+            .execute(&mut *transaction).await.map_err(|e|e.to_string())?;
     }
     transaction.commit().await.map_err(|e| e.to_string())?;
     Ok(())
@@ -276,6 +352,8 @@ mod tests {
                 include_str!("../migrations/0001_initial.sql"),
                 include_str!("../migrations/0002_collections.sql"),
                 include_str!("../migrations/0003_paper_names.sql"),
+                include_str!("../migrations/0004_ai_usage.sql"),
+                include_str!("../migrations/0005_ai_records.sql"),
             ] {
                 sqlx::raw_sql(migration).execute(&mut db).await.unwrap();
             }
@@ -285,6 +363,8 @@ mod tests {
             let imported = crate::files::copy_pdf(&source, &papers).unwrap();
             sqlx::query("INSERT INTO papers(id,title,file_path,file_size,total_pages) VALUES (?, '原始论文', 'old-computer-path', 24, 3)").bind(&imported.id).execute(&mut db).await.unwrap();
             sqlx::query("INSERT INTO notes(id,paper_id,page_number,content_markdown) VALUES ('note',?,2,'测试笔记')").bind(&imported.id).execute(&mut db).await.unwrap();
+            sqlx::query("INSERT INTO ai_usage(request_id,provider,model,status,input_tokens,output_tokens) VALUES ('usage','DeepSeek','test','succeeded',100,20)").execute(&mut db).await.unwrap();
+            sqlx::query("INSERT INTO ai_records(id,paper_id,kind,model,selected_text,question,answer,sources_json,status,created_at) VALUES('translation',?,'translate','test','source','translate','保存的翻译','[]','succeeded','2026-09-25T00:00:00Z')").bind(&imported.id).execute(&mut db).await.unwrap();
             let folder = snapshot(
                 &database,
                 &papers,
@@ -293,6 +373,8 @@ mod tests {
             )
             .await
             .unwrap();
+            assert_eq!(manifest(&folder).unwrap().version, 3);
+            sqlx::query("INSERT INTO ai_usage(request_id,provider,model,status) VALUES ('newer','DeepSeek','test','cancelled')").execute(&mut db).await.unwrap();
             sqlx::query("UPDATE papers SET title='changed'")
                 .execute(&mut db)
                 .await
@@ -316,6 +398,56 @@ mod tests {
                 .await
                 .unwrap();
             assert_eq!(note, "测试笔记");
+            assert_eq!(
+                sqlx::query_scalar::<_, String>(
+                    "SELECT answer FROM ai_records WHERE id='translation'"
+                )
+                .fetch_one(&mut db)
+                .await
+                .unwrap(),
+                "保存的翻译"
+            );
+            assert_eq!(
+                sqlx::query_scalar::<_, i64>("SELECT count(*) FROM ai_usage")
+                    .fetch_one(&mut db)
+                    .await
+                    .unwrap(),
+                2
+            );
+            // Simulate a Phase 1 backup; restoring it preserves today's usage and library notes.
+            let mut old = connect(&folder.join("library.sqlite"), false)
+                .await
+                .unwrap();
+            sqlx::query("DROP TABLE ai_records")
+                .execute(&mut old)
+                .await
+                .unwrap();
+            sqlx::query("DROP TABLE ai_usage")
+                .execute(&mut old)
+                .await
+                .unwrap();
+            old.close().await.unwrap();
+            fs::write(
+                folder.join("manifest.json"),
+                br#"{"version":1,"drafts":{}}"#,
+            )
+            .unwrap();
+            assert_eq!(manifest(&folder).unwrap().version, 1);
+            restore(&database, &papers, &folder).await.unwrap();
+            assert_eq!(
+                sqlx::query_scalar::<_, i64>("SELECT count(*) FROM ai_records")
+                    .fetch_one(&mut db)
+                    .await
+                    .unwrap(),
+                0
+            );
+            assert_eq!(
+                sqlx::query_scalar::<_, i64>("SELECT count(*) FROM ai_usage")
+                    .fetch_one(&mut db)
+                    .await
+                    .unwrap(),
+                2
+            );
             sqlx::query("UPDATE papers SET title='preserve me'")
                 .execute(&mut db)
                 .await

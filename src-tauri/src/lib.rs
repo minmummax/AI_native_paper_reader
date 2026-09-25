@@ -1,3 +1,5 @@
+mod ai;
+mod ai_usage;
 mod arxiv;
 mod backup;
 mod files;
@@ -27,11 +29,30 @@ pub fn run() {
             sql: include_str!("../migrations/0003_paper_names.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 4,
+            description: "local_ai_usage_metadata",
+            sql: include_str!("../migrations/0004_ai_usage.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 5,
+            description: "saved_selection_ai_records",
+            sql: include_str!("../migrations/0005_ai_records.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(arxiv::DownloadState::default())
+        .manage(ai::AiState::default())
         .invoke_handler(tauri::generate_handler![
+            ai::get_ai_profile,
+            ai::configure_ai_provider,
+            ai::begin_ai_request,
+            ai::cancel_ai_request,
+            ai::run_ai_action,
+            ai::get_ai_usage,
             files::prepare_import,
             files::read_paper_file,
             files::scan_folder,
