@@ -1,8 +1,14 @@
 # 论文阅读器 · Paper Reader
 
+简体中文 | [English](README.en.md)
+
 <img src="assets/branding/paper-reader.png" alt="论文阅读器图标" width="128" />
 
 一个以本地资料为中心的桌面论文阅读器：在标签书架中整理 PDF，阅读时标注和记笔记，也可以选中文字翻译、向 AI 提问。
+
+这个项目最初是为了自己阅读论文而做的，也希望能方便有相同需求的人。欢迎反馈问题、分享使用体验，一起把论文整理、阅读和思考变得更顺手。
+
+项目采用 [MIT 许可证](LICENSE)。想参与改进，可以从 [贡献指南](CONTRIBUTING.md) 或 [Issues](https://github.com/minmummax/AI_native_paper_reader/issues) 开始。第三方依赖与素材保留各自的许可证和声明。
 
 **当前版本：v0.1.1 测试版。** macOS Apple Silicon 安装包已在本机生成；Windows x64 已配置 GitHub Actions 构建，尚待首次云端构建及原生验收。Linux 尚未验收。
 

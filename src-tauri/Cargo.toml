@@ -2,6 +2,7 @@
 name = "local-paper-reader"
 version = "0.1.1"
 edition = "2021"
+license = "MIT"
 
 [lib]
 name = "local_paper_reader_lib"
