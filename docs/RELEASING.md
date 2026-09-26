@@ -23,6 +23,8 @@ npm run release:mac -- -- --locked
 
 Mac 下载项分别是 `paper-reader-macos-intel-…` 和 `paper-reader-macos-arm64-…`，内含 DMG 及平台专属校验文件。配置已经添加，两个云端任务仍需首次运行验证。
 
+流水线打包完成后自动将附件命名为 `PaperReader_<版本>_macOS_intel.dmg`、`PaperReader_<版本>_macOS_arm64.dmg` 和 `PaperReader_<版本>_Windows_x64.exe`，版本从 `package.json` 读取。校验文件根据改名后的安装包生成，三个平台使用独立的 `SHA256SUMS-<平台>-<架构>.txt`，可直接一起上传 Release。应用内部中文名称不变。本机直接运行 Tauri 打包时仍使用原始产物名称。
+
 Windows 使用同一套源码，无需再写一个前端。当前工作流构建 **Windows 10/11 x64** 的 NSIS `-setup.exe`；ARM64/32 位不在本次验证范围。Mac 上的普通 `tauri build` 生成的是 Mac 应用；Windows 原生 runner 可避免交叉编译工具链差异。参见 [Tauri Windows 安装包文档](https://v2.tauri.app/distribute/windows-installer/)。
 
 1. 将完整项目提交并推送到自己的 GitHub 仓库（包含新代码、迁移、图标、锁文件及 `.github/workflows/windows-build.yml`，不包含 node_modules、target 或本机资料）。

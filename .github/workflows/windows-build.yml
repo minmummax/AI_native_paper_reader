@@ -59,14 +59,28 @@ jobs:
         env:
           CI: 'true'
         run: npm run release:mac -- --target ${{ matrix.target }} -- --locked
-      - name: Checksums
+      - name: Name installer and generate checksum
         working-directory: src-tauri/target/${{ matrix.target }}/release/bundle/dmg
-        run: shasum -a 256 ./*.dmg > SHA256SUMS-macos-${{ matrix.arch }}.txt
+        env:
+          INSTALLER_ARCH: ${{ matrix.arch }}
+        run: |
+          version=$(node -p 'require(process.env.GITHUB_WORKSPACE + "/package.json").version')
+          installers=(./*.dmg)
+          if [[ ${#installers[@]} -ne 1 || ! -f "${installers[0]}" ]]; then
+            echo "Expected exactly one DMG installer" >&2
+            exit 1
+          fi
+          filename="PaperReader_${version}_macOS_${INSTALLER_ARCH}.dmg"
+          if [[ "${installers[0]}" != "./${filename}" ]]; then
+            mv "${installers[0]}" "$filename"
+          fi
+          shasum -a 256 "$filename" > "SHA256SUMS-macos-${INSTALLER_ARCH}.txt"
+          shasum -a 256 -c "SHA256SUMS-macos-${INSTALLER_ARCH}.txt"
       - uses: actions/upload-artifact@v4
         with:
           name: paper-reader-macos-${{ matrix.arch }}-${{ github.sha }}
           path: |
-            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/PaperReader_*.dmg
             src-tauri/target/${{ matrix.target }}/release/bundle/dmg/SHA256SUMS-macos-${{ matrix.arch }}.txt
           if-no-files-found: error
           retention-days: 30
@@ -105,19 +119,23 @@ jobs:
         run: cargo test --manifest-path src-tauri/Cargo.toml --locked
       - name: Build Windows x64 installer
         run: npm run release:windows -- -- --locked
-      - name: Checksums
+      - name: Name installer and generate checksum
         shell: pwsh
         run: |
           $folder = 'src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis'
           $installers = @(Get-ChildItem $folder -Filter '*-setup.exe')
-          if ($installers.Count -eq 0) { throw 'No installer produced' }
-          $lines = $installers | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)" }
-          $lines | Set-Content (Join-Path $folder 'SHA256SUMS.txt') -Encoding utf8
+          if ($installers.Count -ne 1) { throw 'Expected exactly one NSIS installer' }
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $filename = "PaperReader_${version}_Windows_x64.exe"
+          $destination = Join-Path $folder $filename
+          Move-Item -LiteralPath $installers[0].FullName -Destination $destination
+          $hash = (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLower()
+          "$hash  $filename" | Set-Content (Join-Path $folder 'SHA256SUMS-windows-x64.txt') -Encoding utf8
       - uses: actions/upload-artifact@v4
         with:
           name: paper-reader-windows-x64-${{ github.sha }}
           path: |
-            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe
-            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/SHA256SUMS.txt
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/PaperReader_*.exe
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/SHA256SUMS-windows-x64.txt
           if-no-files-found: error
           retention-days: 30

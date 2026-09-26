@@ -28,7 +28,7 @@ Check the [Releases page](https://github.com/minmummax/AI_native_paper_reader/re
 
 | Platform | Installer | How to use it |
 | --- | --- | --- |
-| Windows x64 | `-setup.exe` | Run the installer. WebView2's offline installer is bundled. |
+| Windows x64 | `PaperReader_<version>_Windows_x64.exe` (older builds: `-setup.exe`) | Run the installer. WebView2's offline installer is bundled. |
 | macOS Apple Silicon (M-series) | `aarch64` / Apple Silicon `.dmg` | Open the disk image and drag the app into Applications. |
 | macOS Intel | `x64` / Intel `.dmg` | Open the disk image and drag the app into Applications. |
 
@@ -171,6 +171,8 @@ The [Desktop installers workflow](.github/workflows/windows-build.yml) builds Wi
 On your own repository, open **Actions → Desktop installers → Run workflow** and select the branch containing the latest workflow. A pushed version tag such as `v0.1.1` also triggers a build and must match the configured application version. Ordinary branch pushes do not trigger packaging.
 
 Successful jobs upload installers and SHA-256 checksums to **Artifacts**, retained for 30 days. The workflow does not automatically publish a GitHub Release. Maintainers can attach the tested installers and checksums to a release for public download. An older tag does not include workflow changes committed after it; use a manual run on the updated branch to build those changes.
+
+CI automatically names installers `PaperReader_<version>_macOS_intel.dmg`, `PaperReader_<version>_macOS_arm64.dmg`, and `PaperReader_<version>_Windows_x64.exe`. Checksums reference these final filenames and use a separate text file per platform. The installed application's Chinese name is unchanged; direct local Tauri builds still use the original filenames.
 
 ## Current limitations
 
