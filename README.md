@@ -23,9 +23,9 @@
 | macOS Apple Silicon | 在 M 系列 Mac 执行 `npm run release:mac` | `.app` / `.dmg` |
 | Windows x64 | GitHub Actions，或 Windows 上执行 `npm run release:windows` | `-setup.exe` |
 
-**GitHub 流水线已经包含在本仓库：** [Windows installer](.github/workflows/windows-build.yml)。将完整代码推送到 GitHub 默认分支后，进入 **Actions → Windows installer → Run workflow**。流程安装依赖、执行回归测试、构建 Windows 安装包，成功后从该次运行的 **Artifacts** 下载安装包及 SHA-256 校验文件。
+**GitHub 流水线已经包含在本仓库：** [Desktop installers](.github/workflows/windows-build.yml)。将完整代码推送到 GitHub 默认分支后，进入 **Actions → Desktop installers → Run workflow**。流程分别在 Windows x64、macOS Intel 和 macOS ARM 环境安装依赖、执行回归测试和构建，成功后从该次运行的 **Artifacts** 下载各平台安装包及 SHA-256 校验文件。文件名沿用 `windows-build.yml`，显示名称已更新。
 
-也可以推送与应用版本一致的标签（当前为 `v0.1.1`）触发构建。普通分支推送不会自动打包。产物保留 30 天，流程不会自动公开发布 Release；macOS 云端流水线尚未配置。Windows 安装包内置 WebView2 离线安装程序，首次构建需要联网。
+也可以推送与应用版本一致的标签（当前为 `v0.1.1`）触发构建。普通分支推送不会自动打包。产物保留 30 天，流程不会自动公开发布 Release。已经存在的 tag 不包含之后的流水线修改；更新推送到默认分支后，请手动选择 `main` 运行。Windows 安装包内置 WebView2 离线安装程序，首次构建需要联网。
 
 安装包目前未配置正式发布者签名；构建成功不代表各平台原生验收完成。环境安装、发布步骤和验收清单见 [发布指南](docs/RELEASING.md)，版本变化见 [v0.1.1 发行说明](releases/0.1.1/发行说明.md)。
 

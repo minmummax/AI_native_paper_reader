@@ -1,4 +1,4 @@
-name: Windows installer
+name: Desktop installers
 
 on:
   workflow_dispatch:
@@ -9,7 +9,69 @@ permissions:
   contents: read
 
 jobs:
+  macos:
+    name: macOS ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+            arch: intel
+          - runner: macos-15
+            target: aarch64-apple-darwin
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: macos-${{ matrix.arch }}
+      - run: npm ci
+      - name: Check version and tag
+        run: |
+          node --input-type=module <<'JS'
+          import { readFileSync } from 'node:fs';
+          const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+          const config = JSON.parse(readFileSync('src-tauri/tauri.conf.json', 'utf8'));
+          if (pkg.version !== config.version) throw new Error('Package/Tauri version mismatch');
+          if (process.env.GITHUB_REF_TYPE === 'tag' && process.env.GITHUB_REF_NAME !== `v${pkg.version}`) {
+            throw new Error('Release tag does not match the app version');
+          }
+          JS
+      - name: Offline regression tests
+        run: npm test
+      - name: Rust regression tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml --target ${{ matrix.target }} --locked
+      - name: Build macOS installer
+        env:
+          CI: 'true'
+        run: npm run release:mac -- --target ${{ matrix.target }} -- --locked
+      - name: Checksums
+        working-directory: src-tauri/target/${{ matrix.target }}/release/bundle/dmg
+        run: shasum -a 256 ./*.dmg > SHA256SUMS-macos-${{ matrix.arch }}.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: paper-reader-macos-${{ matrix.arch }}-${{ github.sha }}
+          path: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/SHA256SUMS-macos-${{ matrix.arch }}.txt
+          if-no-files-found: error
+          retention-days: 30
   build:
+    name: Windows x64
     runs-on: windows-2022
     timeout-minutes: 60
     steps:
