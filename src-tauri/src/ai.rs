@@ -88,7 +88,12 @@ impl ProviderConfig {
         if self.provider_type == "deepseek" {
             "DeepSeek"
         } else {
-            "自定义 OpenAI 兼容"
+            match self.base_url.trim_end_matches('/').trim_end_matches("/chat/completions") {
+                "https://openrouter.ai/api/v1" => "OpenRouter",
+                "https://open.bigmodel.cn/api/paas/v4" => "智谱 GLM",
+                "https://api.xiaomimimo.com/v1" => "小米 MiMo",
+                _ => "自定义 OpenAI 兼容",
+            }
         }
     }
     fn account(&self) -> String {
@@ -540,6 +545,13 @@ impl AIProvider for CompatibleProvider {
         if self.0.provider_type == "deepseek" {
             body["thinking"] = json!({"type":"disabled"});
         }
+        // MiMo documents max_completion_tokens rather than max_tokens. Keep reasoning
+        // disabled for bounded reading answers; this app does not replay reasoning/tool state.
+        if self.0.provider() == "小米 MiMo" {
+            body.as_object_mut().unwrap().remove("max_tokens");
+            body["max_completion_tokens"] = json!(2048);
+            body["thinking"] = json!({"type":"disabled"});
+        }
         let request = client.post(self.0.endpoint()).json(&body);
         if key.is_empty() {
             request
@@ -944,6 +956,32 @@ mod tests {
             .build()
             .unwrap();
         assert_eq!(request.headers()["authorization"], "Bearer custom-key");
+        // Presets reuse endpoint-bound custom credentials and the same evidence pipeline.
+        for (url, label) in [
+            ("https://openrouter.ai/api/v1", "OpenRouter"),
+            ("https://open.bigmodel.cn/api/paas/v4", "智谱 GLM"),
+            ("https://api.xiaomimimo.com/v1", "小米 MiMo"),
+        ] {
+            let config = test_config("custom", url);
+            assert_eq!(config.provider(), label);
+            assert_ne!(config.account(), custom.0.account());
+            let request = CompatibleProvider(config)
+                .request(&reqwest::Client::new(), "preset-test-key", &input)
+                .build().unwrap();
+            assert_eq!(request.url().as_str(), format!("{url}/chat/completions"));
+            assert_eq!(request.headers()["authorization"], "Bearer preset-test-key");
+            let body: Value = serde_json::from_slice(request.body().unwrap().as_bytes().unwrap()).unwrap();
+            assert_eq!(body["stream"], true);
+            if label == "小米 MiMo" {
+                assert_eq!(body["max_completion_tokens"], 2048);
+                assert!(body.get("max_tokens").is_none());
+                assert_eq!(body["thinking"]["type"], "disabled");
+            } else {
+                assert_eq!(body["max_tokens"], 2048);
+                assert!(body.get("thinking").is_none());
+            }
+        }
+        assert_eq!(test_config("custom", "https://api.xiaomimimo.com.example.org/v1").provider(), "自定义 OpenAI 兼容");
         input.history[0].role = "system".into();
         assert!(validate_context(&input, 10).is_err());
         input.history[0].role = "user".into();
