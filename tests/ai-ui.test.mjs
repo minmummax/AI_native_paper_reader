@@ -13,6 +13,19 @@ const { MarkdownAnswer, safeMarkdownUrl } = await load('../src/components/Markdo
 const { boundedHistory } = await load('../src/lib/aiConversation.ts');
 const { totalUsage, usageByModel, dailyUsage } = await load('../src/lib/aiUsage.ts');
 const { clampAssistant } = await load('../src/components/FloatingAssistant.tsx');
+const { presetForProfile, providerPresets } = await load('../src/lib/aiProviders.ts');
+
+test('provider presets recognize saved custom endpoints without mislabeling other hosts', () => {
+  for (const preset of providerPresets.filter(item => item.id !== 'custom')) {
+    assert.equal(presetForProfile(preset).id, preset.id);
+    if (preset.providerType === 'custom') {
+      assert.equal(presetForProfile({ ...preset, baseUrl: preset.baseUrl + '/chat/completions/' }).id, preset.id);
+      assert.equal(preset.requiresKey, true);
+    }
+  }
+  assert.equal(presetForProfile({providerType:'custom',baseUrl:'http://127.0.0.1:8000/v1'}).id,'custom');
+  assert.equal(presetForProfile({providerType:'custom',baseUrl:'https://api.xiaomimimo.com.example.org/v1'}).id,'custom');
+});
 
 test('Markdown renders GFM, code and formulas without executing HTML or fetching images', () => {
   const text = '# 标题\n\n**重点**\n\n- 条目\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n\n```js\nconst n = 1;\n```\n\n$E=mc^2$\n\n<script>alert(1)</script>\n\n![追踪](https://example.com/tracker)\n\n[危险](javascript:alert%281%29)';

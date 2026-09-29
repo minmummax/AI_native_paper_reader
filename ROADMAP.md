@@ -46,6 +46,7 @@
   - [x] Migration 4 persists usage metadata; backup v2 merges usage by request ID and accepts older backups without this table.
 - [ ] **Incremental Phase 2A Extensions**:
   - [x] Custom OpenAI-compatible base URL/model, optional endpoint-scoped credentials, LAN HTTP and configurable streaming usage requests.
+  - [x] OpenRouter, Zhipu GLM and Xiaomi MiMo endpoint presets, provider labels and MiMo token/thinking parameter adaptation; request construction tested offline, live-account acceptance pending.
   - [ ] Extend adapters toward OpenAI, Gemini, Claude and DeepSeek; leave local providers as a compatible extension point. Supporting all four is not a first-delivery gate.
   - [ ] Add current-section context with page fallback when TOC/heading structure is unreliable.
   - [ ] Support full-paper requests through native PDF/file input where supported; offer an explicit bounded-text fallback otherwise.

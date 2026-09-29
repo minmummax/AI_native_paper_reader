@@ -3,6 +3,7 @@ import { invoke, isTauri } from '@tauri-apps/api/core';
 import { X } from 'lucide-react';
 import type { AiProfile } from '../types/ai';
 import { UsageReport } from './UsageReport';
+import { presetForProfile, providerPresets } from '../lib/aiProviders';
 
 interface Props { autoOpen: boolean; onAutoOpen: (value: boolean) => Promise<void>; onConfigured: () => void; onClose: () => void }
 
@@ -12,6 +13,7 @@ export function SettingsDialog({ autoOpen, onAutoOpen, onConfigured, onClose }: 
   const [profile, setProfile] = useState<AiProfile | null>(null);
   const [model, setModel] = useState('deepseek-flash');
   const [providerType, setProviderType] = useState<'deepseek' | 'custom'>('deepseek');
+  const [presetId, setPresetId] = useState('deepseek');
   const [baseUrl, setBaseUrl] = useState('https://api.deepseek.com');
   const [requiresKey, setRequiresKey] = useState(true);
   const [includeUsage, setIncludeUsage] = useState(true);
@@ -26,7 +28,7 @@ export function SettingsDialog({ autoOpen, onAutoOpen, onConfigured, onClose }: 
     mounted.current = true;
     const previous = document.activeElement;
     dialog.current?.focus();
-    void invoke<AiProfile>('get_ai_profile').then(value => { if (mounted.current) { setProfile(value); setModel(value.model); setProviderType(value.providerType); setBaseUrl(value.baseUrl); setRequiresKey(value.requiresKey); setIncludeUsage(value.includeUsage); } })
+    void invoke<AiProfile>('get_ai_profile').then(value => { if (mounted.current) { setProfile(value); setPresetId(presetForProfile(value).id); setModel(value.model); setProviderType(value.providerType); setBaseUrl(value.baseUrl); setRequiresKey(value.requiresKey); setIncludeUsage(value.includeUsage); } })
       .catch((reason: unknown) => { if (mounted.current) setError(String(reason)); }).finally(() => { if (mounted.current) setLoading(false); });
     return () => { mounted.current = false; if (previous instanceof HTMLElement) previous.focus(); };
   }, []);
@@ -36,7 +38,7 @@ export function SettingsDialog({ autoOpen, onAutoOpen, onConfigured, onClose }: 
     try {
       const value = await invoke<AiProfile>('configure_ai_provider', { providerType, baseUrl: baseUrl.trim(), requiresKey, includeUsage, model: model.trim(), apiKey: removeKey ? null : entered || null, removeKey });
       onConfigured();
-      if (mounted.current) { setProfile(value); setModel(value.model); setProviderType(value.providerType); setBaseUrl(value.baseUrl); setRequiresKey(value.requiresKey); setIncludeUsage(value.includeUsage); setMessage(removeKey ? '已从系统凭据库删除密钥' : '模型配置已保存'); }
+      if (mounted.current) { setProfile(value); setPresetId(presetForProfile(value).id); setModel(value.model); setProviderType(value.providerType); setBaseUrl(value.baseUrl); setRequiresKey(value.requiresKey); setIncludeUsage(value.includeUsage); setMessage(removeKey ? '已从系统凭据库删除密钥' : '模型配置已保存'); }
     } catch (reason: unknown) { if (mounted.current) setError(String(reason)); }
     finally { if (mounted.current) setSaving(false); }
   };
@@ -56,15 +58,18 @@ export function SettingsDialog({ autoOpen, onAutoOpen, onConfigured, onClose }: 
     <div className="min-h-0 overflow-auto p-5 sm:p-6">{tab === 'usage' ? <UsageReport/> : <div className="space-y-6">
       <section><h3 className="font-medium">悬浮对话</h3><label className="mt-3 flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1" checked={autoOpen} disabled={saving} onChange={event => { setError(''); const checked = event.target.checked; setSaving(true); void onAutoOpen(checked).catch((reason: unknown) => { if (mounted.current) setError(String(reason)); }).finally(() => { if (mounted.current) setSaving(false); }); }}/><span>打开论文时自动显示 AI 悬浮窗<span className="mt-1 block text-xs leading-5 text-slate-500">也可以随时点击右下角“AI 对话”。窗口可拖动、收起；只有点击发送才会调用模型。</span></span></label></section>
       <form className="space-y-4 border-t pt-5" onSubmit={event => { event.preventDefault(); void save(); }}>
-        <div><h3 className="font-medium">大模型配置</h3><p className="mt-1 text-xs text-slate-500">支持 DeepSeek 官方和私有部署的 OpenAI 兼容聊天接口。</p></div>
+        <div><h3 className="font-medium">大模型配置</h3><p className="mt-1 text-xs text-slate-500">支持 DeepSeek、OpenRouter、智谱 GLM、小米 MiMo 及自定义兼容服务。每次使用一个服务，保存后生效。</p></div>
         {loading && <p role="status" className="text-xs">正在读取本地配置…</p>}
-        <label className="block text-sm">服务类型<select className="mt-1 block w-full rounded-lg border p-2" value={providerType} disabled={saving || loading} onChange={event => {
-          const kind = event.target.value as 'deepseek' | 'custom'; setProviderType(kind); setKey(''); setMessage('');
-          if (profile?.providerType === kind) { setBaseUrl(profile.baseUrl); setModel(profile.model); setRequiresKey(profile.requiresKey); setIncludeUsage(profile.includeUsage); }
-          else { setBaseUrl(kind === 'deepseek' ? 'https://api.deepseek.com' : ''); setModel(kind === 'deepseek' ? 'deepseek-flash' : ''); setRequiresKey(kind === 'deepseek'); setIncludeUsage(kind === 'deepseek'); }
-        }}><option value="deepseek">DeepSeek 官方</option><option value="custom">自定义（OpenAI 兼容 / 私有部署）</option></select></label>
+        <label className="block text-sm">服务类型<select className="mt-1 block w-full rounded-lg border p-2" value={presetId} disabled={saving || loading} onChange={event => {
+          const preset = providerPresets.find(item => item.id === event.target.value);
+          if (!preset) return;
+          setPresetId(preset.id); setProviderType(preset.providerType); setKey(''); setMessage(''); setError('');
+          const values = profile && presetForProfile(profile).id === preset.id ? profile : preset;
+          setBaseUrl(values.baseUrl); setModel(values.model); setRequiresKey(values.requiresKey); setIncludeUsage(values.includeUsage);
+        }}>{providerPresets.map(preset => <option key={preset.id} value={preset.id}>{preset.name}</option>)}</select></label>
+        <p className="text-xs leading-5 text-slate-500">{providerPresets.find(preset => preset.id === presetId)?.hint}</p>
         {providerType === 'custom' && <>
-          <label className="block text-sm">服务地址（Base URL）<input type="url" className="mt-1 block w-full rounded-lg border p-2" value={baseUrl} placeholder="http://172.16.64.255:8000/v1" disabled={saving || loading} required maxLength={2048} onChange={event => { setBaseUrl(event.target.value); setKey(''); }}/></label>
+          <label className="block text-sm">服务地址（Base URL）<input type="url" className="mt-1 block w-full rounded-lg border p-2" value={baseUrl} placeholder="http://127.0.0.1:8000/v1" disabled={saving || loading} readOnly={presetId !== 'custom'} required maxLength={2048} onChange={event => { setBaseUrl(event.target.value); setKey(''); }}/></label>
           <p className="text-xs leading-5 text-slate-500">只填主机和端口时自动补 /v1，也可填写完整 API 前缀或 /chat/completions 地址。HTTP 支持本机、私有 IP 和 .local 域名；局域网 HTTP 不加密传输内容。</p>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={requiresKey} disabled={saving || loading} onChange={event => { setRequiresKey(event.target.checked); setKey(''); }}/>服务需要 API Key</label>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={includeUsage} disabled={saving || loading} onChange={event => setIncludeUsage(event.target.checked)}/>请求流式 token 用量（服务支持时开启）</label>
