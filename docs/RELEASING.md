@@ -71,3 +71,7 @@ npm run release:windows -- -- --locked
 源图：`assets/branding/paper-reader.png`；桌面运行资源：`src-tauri/icons/`。修改源图后用 `npm run tauri -- icon assets/branding/paper-reader.png --output <临时输出目录>` 生成，复制桌面 PNG/ICO/ICNS 到 icons。无需提交移动平台图标。
 
 下次发版时同步更新 `package.json`、`package-lock.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock` 和 `src-tauri/tauri.conf.json` 的应用版本。
+
+## 将云端安装包加入 Release 草稿
+
+三个平台的 Desktop installers 构建全部成功后，创建对应版本标签的 Release 草稿，再手动运行 **Attach installers to release draft**，填写构建运行 ID 和版本标签。流程核对构建提交与标签、三个平台的 SHA-256 后，将安装包与校验文件直接加入草稿，无需本机中转。流程不会自动公开发布；各目标平台的数据持久化、备份恢复和关闭重启验收通过后再发布。

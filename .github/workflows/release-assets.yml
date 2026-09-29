@@ -1,0 +1,113 @@
+name: Attach installers to release draft
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful Desktop installers run ID
+        required: true
+        type: string
+      tag:
+        description: Existing release tag
+        required: true
+        default: v0.1.2
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  attach:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Verify build and draft
+        id: verify
+        uses: actions/github-script@v7
+        env:
+          BUILD_RUN_ID: ${{ inputs.run_id }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        with:
+          script: |
+            const runId = process.env.BUILD_RUN_ID;
+            if (!/^\d+$/.test(runId)) throw new Error('Invalid build run ID');
+            const tag = process.env.RELEASE_TAG;
+            const { data: run } = await github.rest.actions.getWorkflowRun({ ...context.repo, run_id: runId });
+            if (run.path !== '.github/workflows/windows-build.yml' || run.status !== 'completed' || run.conclusion !== 'success') {
+              throw new Error('All Desktop installers jobs must succeed first');
+            }
+            const { data: ref } = await github.rest.git.getRef({ ...context.repo, ref: `tags/${tag}` });
+            let object = ref.object;
+            while (object.type === 'tag') {
+              const { data: annotated } = await github.rest.git.getTag({ ...context.repo, tag_sha: object.sha });
+              object = annotated.object;
+            }
+            if (object.type !== 'commit' || object.sha !== run.head_sha) throw new Error('Build does not match release tag');
+            const releases = await github.paginate(github.rest.repos.listReleases, { ...context.repo, per_page: 100 });
+            const release = releases.find(item => item.tag_name === tag);
+            if (!release?.draft) throw new Error('An existing draft release is required');
+            core.setOutput('release_id', String(release.id));
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.run_id }}
+          pattern: folio-reader-*
+          path: installers
+      - name: Verify checksums and attach installers
+        uses: actions/github-script@v7
+        env:
+          RELEASE_ID: ${{ steps.verify.outputs.release_id }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        with:
+          script: |
+            const fs = require('node:fs/promises');
+            const path = require('node:path');
+            const crypto = require('node:crypto');
+            const releaseId = Number(process.env.RELEASE_ID);
+            const version = process.env.RELEASE_TAG.replace(/^v/, '');
+            const expected = new Map([
+              ['macos-intel', `FolioReader_${version}_macOS_intel.dmg`],
+              ['macos-arm64', `FolioReader_${version}_macOS_arm64.dmg`],
+              ['windows-x64', `FolioReader_${version}_Windows_x64.exe`],
+            ]);
+            const pending = [];
+            const seen = new Set();
+            for (const folder of await fs.readdir('installers', { withFileTypes: true })) {
+              if (!folder.isDirectory()) throw new Error('Unexpected artifact file');
+              const directory = path.join('installers', folder.name);
+              const files = await fs.readdir(directory);
+              const checksums = files.filter(name => name.startsWith('SHA256SUMS-') && name.endsWith('.txt'));
+              if (checksums.length !== 1 || files.length !== 2) throw new Error('Unexpected artifact contents');
+              const checksumName = checksums[0];
+              const platform = checksumName.slice('SHA256SUMS-'.length, -4);
+              const installerName = expected.get(platform);
+              if (!installerName || seen.has(platform)) throw new Error('Unexpected or duplicate platform');
+              const checksum = await fs.readFile(path.join(directory, checksumName));
+              const record = checksum.toString('utf8').replace(/^\uFEFF/, '').trim();
+              const match = /^([a-fA-F0-9]{64})\s+\*?(.+)$/.exec(record);
+              if (!match || match[2] !== installerName || !files.includes(installerName)) throw new Error('Invalid checksum manifest');
+              const data = await fs.readFile(path.join(directory, installerName));
+              const digest = crypto.createHash('sha256').update(data).digest('hex');
+              if (digest !== match[1].toLowerCase()) throw new Error('Installer checksum mismatch');
+              pending.push({ name: installerName, data }, { name: checksumName, data: checksum });
+              seen.add(platform);
+            }
+            if (seen.size !== expected.size) throw new Error('All three platform artifacts are required');
+            const { data: release } = await github.rest.repos.getRelease({ ...context.repo, release_id: releaseId });
+            if (!release.draft) throw new Error('Release must remain a draft during attachment');
+            const existing = await github.paginate(github.rest.repos.listReleaseAssets, { ...context.repo, release_id: releaseId, per_page: 100 });
+            for (const asset of pending) {
+              const old = existing.find(item => item.name === asset.name);
+              if (old) {
+                const expectedDigest = `sha256:${crypto.createHash('sha256').update(asset.data).digest('hex')}`;
+                if (old.size !== asset.data.length || old.digest !== expectedDigest) throw new Error(`Existing asset differs: ${asset.name}`);
+                continue;
+              }
+              await github.rest.repos.uploadReleaseAsset({
+                ...context.repo, release_id: releaseId, name: asset.name, data: asset.data,
+                headers: { 'content-type': 'application/octet-stream', 'content-length': asset.data.length },
+              });
+              core.info(`Attached ${asset.name}`);
+            }
+            await core.summary.addHeading('Release draft prepared').addRaw(`Verified and attached installers and checksums for ${version}. The release remains a draft pending platform acceptance.`).write();
