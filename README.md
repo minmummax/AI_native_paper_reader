@@ -1,18 +1,30 @@
-# Folio Reader
+<p align="center">
+  <img src="assets/promotion/folio-reader-x-launch.png" alt="Folio Reader — 面向论文、书籍和财报的本地优先 PDF 阅读器，支持标签书架、笔记、选区翻译与 AI 提问" width="100%" />
+</p>
 
-简体中文 | [English](README.en.md)
+<p align="center">
+  <strong>阅读论文、书籍与财报，让资料与想法留在同一个地方。</strong>
+</p>
 
-<img src="assets/branding/paper-reader.png" alt="Folio Reader 图标" width="128" />
+<p align="center">
+  简体中文 · <a href="README.en.md">English</a>
+  <br />
+  <a href="https://github.com/minmummax/AI_native_paper_reader/releases">下载</a> ·
+  <a href="#主要功能">主要功能</a> ·
+  <a href="#启动">快速开始</a> ·
+  <a href="docs/RELEASING.md">构建与发布</a> ·
+  <a href="CONTRIBUTING.md">参与贡献</a>
+</p>
 
-一个以本地资料为中心的桌面 PDF 阅读器，适合论文、书籍、财报及其他 PDF 文档：在标签书架中整理 PDF，阅读时标注和记笔记，也可以选中文字翻译、向 AI 提问。
+---
+
+**Folio Reader** 是一个本地优先的桌面 PDF 阅读器，适合论文、书籍、财报及其他 PDF 文档。在标签书架中整理资料，阅读时标注和记笔记，选中文字即可翻译或向 AI 提问。使用你自己的 API 或本地模型，普通阅读无需配置 AI。
 
 这个项目最初是为了自己阅读论文而做的，也希望能方便有相同需求的人。欢迎反馈问题、分享使用体验，一起把资料整理、阅读和思考变得更顺手。
 
-新构建的应用名称为 **Folio Reader**（原名“论文阅读器”），已发布的旧安装包仍可能使用原名。应用标识、数据库及密钥存储标识保持不变。macOS 上新名称的应用不会自动覆盖旧名称的应用；升级前退出旧版并备份资料，安装后使用 Folio Reader。
-
 项目采用 [MIT 许可证](LICENSE)。想参与改进，可以从 [贡献指南](CONTRIBUTING.md) 或 [Issues](https://github.com/minmummax/AI_native_paper_reader/issues) 开始。第三方依赖与素材保留各自的许可证和声明。
 
-**当前版本：v0.1.2 测试版。** macOS Apple Silicon 安装包已在本机生成；Windows x64 已配置 GitHub Actions 构建，尚待首次云端构建及原生验收。Linux 尚未验收。
+**当前代码版本：v0.1.2。** 已配置 Windows x64、macOS Intel 和 Apple Silicon 云端构建。可下载的版本与安装包以 Releases 和成功的 Actions 构建为准；构建成功不代表各平台原生验收完成。Linux 尚未验收。
 
 ## 主要功能
 
@@ -23,6 +35,8 @@
 - **本地资料**：SQLite 持久化、备份恢复、选区 AI 历史与用量统计；API Key 存入系统凭据库。
 
 ## 获取与自动打包
+
+新构建的应用名称为 **Folio Reader**（原名“论文阅读器”），已发布的旧安装包仍可能使用原名。应用标识、数据库及密钥存储标识保持不变。macOS 上新名称的应用不会自动覆盖旧名称的应用；升级前退出旧版并备份资料，安装后使用 Folio Reader。
 
 仓库提供源码与构建流程，安装包不存放在 Git 源码历史中。若维护者已发布版本，可在仓库的 **Releases** 页面下载；否则可按下述流程自行构建。
 
@@ -35,7 +49,7 @@
 
 也可以推送与应用版本一致的标签（当前为 `v0.1.2`）触发构建。普通分支推送不会自动打包。产物保留 30 天，流程不会自动公开发布 Release。已经存在的 tag 不包含之后的流水线修改；更新推送到默认分支后，请手动选择 `main` 运行。Windows 安装包内置 WebView2 离线安装程序，首次构建需要联网。
 
-安装包目前未配置正式发布者签名；构建成功不代表各平台原生验收完成。环境安装、发布步骤和验收清单见 [发布指南](docs/RELEASING.md)，版本变化见 [v0.1.2 发行说明](releases/0.1.1/发行说明.md)。
+安装包目前未配置正式发布者签名；构建成功不代表各平台原生验收完成。环境安装、发布步骤和验收清单见 [发布指南](docs/RELEASING.md)，版本变化见 [v0.1.2 发行说明](releases/0.1.2/发行说明.md)。
 
 ## 技术栈与隐私
 

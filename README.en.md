@@ -1,14 +1,28 @@
-# Folio Reader
+<p align="center">
+  <img src="assets/promotion/folio-reader-x-launch.png" alt="Folio Reader — a local-first PDF reader for papers, books, and financial reports, with a tag-based library, notes, translation, and AI questions" width="100%" />
+</p>
 
-[简体中文](README.md) | English
+<p align="center">
+  <strong>Read papers, books, and financial reports. Keep your documents and ideas together.</strong>
+</p>
 
-<img src="assets/branding/paper-reader.png" alt="Folio Reader icon" width="128" />
+<p align="center">
+  <a href="README.md">简体中文</a> · English
+  <br />
+  <a href="https://github.com/minmummax/AI_native_paper_reader/releases">Download</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#first-steps">Quick start</a> ·
+  <a href="docs/RELEASING.md">Build &amp; release</a> ·
+  <a href="CONTRIBUTING.md">Contribute</a>
+</p>
 
-A local-first desktop PDF reader for papers, books, financial reports, and other PDF documents. Keep your library on your own computer, browse documents on a tag-based bookshelf, and use your preferred AI provider when you need help understanding a passage.
+---
+
+**Folio Reader** is a local-first desktop PDF reader for papers, books, financial reports, and other PDF documents. Organize your library with tags, annotate as you read, and select text to translate or ask AI. Bring your own API or local model; ordinary reading needs no AI setup.
 
 This project started as a tool for my own research reading. I hope it is useful to others with similar needs. Bug reports, suggestions, documentation improvements, and code contributions are welcome.
 
-**Current version: v0.1.2, an early test release.** Build workflows are configured for Windows x64, Intel Macs, and Apple Silicon Macs. Build availability depends on successful workflow runs and published release assets; configuration alone does not mean a platform has completed native testing. Linux has not been validated.
+**Current source version: v0.1.2.** Build workflows are configured for Windows x64, Intel Macs, and Apple Silicon Macs. Build availability depends on successful workflow runs and published release assets; configuration alone does not mean a platform has completed native testing. Linux has not been validated.
 
 **Language note:** the application interface is currently primarily in Chinese. This English README is a guide to the existing app, not an English UI release. AI answers default to Chinese; you can explicitly ask for an English answer. The translation button translates non-Chinese text into Chinese and Chinese text into English, with language recognition handled by the model. There is no target-language selector yet.
 
