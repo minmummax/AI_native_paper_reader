@@ -1,4 +1,4 @@
-# Paper Reader 图标源文件
+# Folio Reader 图标源文件
 
 `paper-reader.png` 是本项目应用图标源图，由内置 image_gen 工具生成（非 CLI）。透明外边缘、墨绿色圆角底、暖白论文书页、珊瑚色书签、黄色高亮，对应阅读、整理和标注功能。
 

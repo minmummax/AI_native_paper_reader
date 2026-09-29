@@ -1,14 +1,14 @@
-# Paper Reader
+# Folio Reader
 
 [简体中文](README.md) | English
 
-<img src="assets/branding/paper-reader.png" alt="Paper Reader icon" width="128" />
+<img src="assets/branding/paper-reader.png" alt="Folio Reader icon" width="128" />
 
-A desktop PDF reader for organizing, annotating, and discussing academic papers. Keep your library on your own computer, browse papers on a tag-based bookshelf, and use your preferred AI provider when you need help understanding a passage.
+A local-first desktop PDF reader for papers, books, financial reports, and other PDF documents. Keep your library on your own computer, browse documents on a tag-based bookshelf, and use your preferred AI provider when you need help understanding a passage.
 
 This project started as a tool for my own research reading. I hope it is useful to others with similar needs. Bug reports, suggestions, documentation improvements, and code contributions are welcome.
 
-**Current version: v0.1.1, an early test release.** Build workflows are configured for Windows x64, Intel Macs, and Apple Silicon Macs. Build availability depends on successful workflow runs and published release assets; configuration alone does not mean a platform has completed native testing. Linux has not been validated.
+**Current version: v0.1.2, an early test release.** Build workflows are configured for Windows x64, Intel Macs, and Apple Silicon Macs. Build availability depends on successful workflow runs and published release assets; configuration alone does not mean a platform has completed native testing. Linux has not been validated.
 
 **Language note:** the application interface is currently primarily in Chinese. This English README is a guide to the existing app, not an English UI release. AI answers default to Chinese; you can explicitly ask for an English answer. The translation button translates non-Chinese text into Chinese and Chinese text into English, with language recognition handled by the model. There is no target-language selector yet.
 
@@ -28,11 +28,11 @@ Check the [Releases page](https://github.com/minmummax/AI_native_paper_reader/re
 
 | Platform | Installer | How to use it |
 | --- | --- | --- |
-| Windows x64 | `PaperReader_<version>_Windows_x64.exe` (older builds: `-setup.exe`) | Run the installer. WebView2's offline installer is bundled. |
+| Windows x64 | `FolioReader_<version>_Windows_x64.exe` (older builds: `-setup.exe`) | Run the installer. WebView2's offline installer is bundled. |
 | macOS Apple Silicon (M-series) | `aarch64` / Apple Silicon `.dmg` | Open the disk image and drag the app into Applications. |
 | macOS Intel | `x64` / Intel `.dmg` | Open the disk image and drag the app into Applications. |
 
-The installed app is named **论文阅读器**. Quit the old version before replacing it, and back up your library before upgrading. Installers currently lack official publisher signing; macOS notarization is not configured, so operating-system security prompts may appear.
+New builds install as **Folio Reader** (previously **论文阅读器**). Existing release assets may still use the old name. On macOS, the renamed app does not automatically replace the old app; quit the old app and use Folio Reader after installation. Keep your existing local data, and back up your library before upgrading. Installers currently lack official publisher signing; macOS notarization is not configured, so operating-system security prompts may appear.
 
 If a release has no installer for your platform, use a successful [Actions run](https://github.com/minmummax/AI_native_paper_reader/actions) or build from source. Downloading Actions artifacts requires signing in to GitHub.
 
@@ -63,6 +63,16 @@ Use Command on macOS and Ctrl on Windows/Linux.
 Library search covers names, metadata, notes, tags, and collections. It does not index the full text of every PDF across your library. In-document search uses the current PDF's text layer.
 
 ## Configure an AI provider
+
+The provider selector now includes **DeepSeek, OpenRouter, Zhipu GLM (China API), Xiaomi MiMo**, and a custom OpenAI-compatible endpoint. Presets fill in the Base URL; enter an exact model ID available to your account. OpenRouter normally uses a full `vendor/model` ID. One service is active at a time, and saving settings does not run inference.
+
+| Preset | Base URL | Official reference |
+| --- | --- | --- |
+| OpenRouter | `https://openrouter.ai/api/v1` | [Quickstart](https://openrouter.ai/docs/quickstart) |
+| Zhipu GLM | `https://open.bigmodel.cn/api/paas/v4` | [SDK documentation](https://github.com/zai-org/z-ai-sdk-python/blob/main/README_CN.md) |
+| Xiaomi MiMo | `https://api.xiaomimimo.com/v1` | [Chat Completions](https://mimo.mi.com/docs/en-US/api/chat/openai-api) |
+
+Existing custom configurations at these endpoints are recognized without moving their endpoint-specific credentials. New presets leave the optional streaming-usage request off by default; any usage returned is still recorded. MiMo uses `max_completion_tokens` and disables thinking for bounded text answers. These adapters support text chat, not audio, tools, or native file inputs. Coding/Token Plan and regional endpoints may require different keys and URLs; configure them as custom services according to provider documentation. Request construction and offline tests pass; live-account integration has not yet been verified.
 
 ### DeepSeek
 
@@ -168,11 +178,11 @@ Output: `src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/`. The Wind
 
 The [Desktop installers workflow](.github/workflows/windows-build.yml) builds Windows x64, macOS Intel, and macOS ARM independently. Its filename remains `windows-build.yml` for continuity.
 
-On your own repository, open **Actions → Desktop installers → Run workflow** and select the branch containing the latest workflow. A pushed version tag such as `v0.1.1` also triggers a build and must match the configured application version. Ordinary branch pushes do not trigger packaging.
+On your own repository, open **Actions → Desktop installers → Run workflow** and select the branch containing the latest workflow. A pushed version tag such as `v0.1.2` also triggers a build and must match the configured application version. Ordinary branch pushes do not trigger packaging.
 
 Successful jobs upload installers and SHA-256 checksums to **Artifacts**, retained for 30 days. The workflow does not automatically publish a GitHub Release. Maintainers can attach the tested installers and checksums to a release for public download. An older tag does not include workflow changes committed after it; use a manual run on the updated branch to build those changes.
 
-CI automatically names installers `PaperReader_<version>_macOS_intel.dmg`, `PaperReader_<version>_macOS_arm64.dmg`, and `PaperReader_<version>_Windows_x64.exe`. Checksums reference these final filenames and use a separate text file per platform. The installed application's Chinese name is unchanged; direct local Tauri builds still use the original filenames.
+CI automatically names installers `FolioReader_<version>_macOS_intel.dmg`, `FolioReader_<version>_macOS_arm64.dmg`, and `FolioReader_<version>_Windows_x64.exe`. Checksums reference these final filenames and use a separate text file per platform. The installed application is named Folio Reader; direct local Tauri builds use the default filenames containing Folio Reader. The application identifier, database, and credential identifiers remain unchanged to preserve access to existing local data.
 
 ## Current limitations
 

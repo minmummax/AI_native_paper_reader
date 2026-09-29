@@ -21,16 +21,16 @@ npm run release:mac -- -- --locked
 
 同一工作流现已包含三个独立构建：Windows x64、macOS Intel（`macos-15-intel` / `x86_64-apple-darwin`）、macOS Apple Silicon（`macos-15` / `aarch64-apple-darwin`）。Mac 架构使用对应原生 runner，分别执行测试并输出 DMG，未添加 Developer ID 签名或公证。Runner 标签依据 [GitHub 官方说明](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)。
 
-Mac 下载项分别是 `paper-reader-macos-intel-…` 和 `paper-reader-macos-arm64-…`，内含 DMG 及平台专属校验文件。配置已经添加，两个云端任务仍需首次运行验证。
+Mac 下载项分别是 `folio-reader-macos-intel-…` 和 `folio-reader-macos-arm64-…`，内含 DMG 及平台专属校验文件。配置已经添加，两个云端任务仍需首次运行验证。
 
-流水线打包完成后自动将附件命名为 `PaperReader_<版本>_macOS_intel.dmg`、`PaperReader_<版本>_macOS_arm64.dmg` 和 `PaperReader_<版本>_Windows_x64.exe`，版本从 `package.json` 读取。校验文件根据改名后的安装包生成，三个平台使用独立的 `SHA256SUMS-<平台>-<架构>.txt`，可直接一起上传 Release。应用内部中文名称不变。本机直接运行 Tauri 打包时仍使用原始产物名称。
+流水线打包完成后自动将附件命名为 `FolioReader_<版本>_macOS_intel.dmg`、`FolioReader_<版本>_macOS_arm64.dmg` 和 `FolioReader_<版本>_Windows_x64.exe`，版本从 `package.json` 读取。校验文件根据改名后的安装包生成，三个平台使用独立的 `SHA256SUMS-<平台>-<架构>.txt`，可直接一起上传 Release。应用名称为 Folio Reader；本机直接运行 Tauri 打包时使用包含 Folio Reader 的默认产物名称。应用标识、数据库和凭据标识保持不变，以沿用现有本地资料。
 
 Windows 使用同一套源码，无需再写一个前端。当前工作流构建 **Windows 10/11 x64** 的 NSIS `-setup.exe`；ARM64/32 位不在本次验证范围。Mac 上的普通 `tauri build` 生成的是 Mac 应用；Windows 原生 runner 可避免交叉编译工具链差异。参见 [Tauri Windows 安装包文档](https://v2.tauri.app/distribute/windows-installer/)。
 
 1. 将完整项目提交并推送到自己的 GitHub 仓库（包含新代码、迁移、图标、锁文件及 `.github/workflows/windows-build.yml`，不包含 node_modules、target 或本机资料）。
 2. 在仓库 **Actions → Desktop installers → Run workflow** 选择 `main` 并启动。工作流文件先进入默认分支，GitHub 才显示手动运行入口。旧 tag 不包含后续修改，重新运行旧 tag 的任务也不会读取新版工作流。
 3. 流程自动准备 Node、Python、Rust，执行 JS/Python/Rust 回归测试，再构建 Windows 安装包。
-4. 成功后在该次运行的 **Artifacts** 下载 `paper-reader-windows-x64-…`。解压即可获得 `.exe` 和 `SHA256SUMS.txt`。默认保留 30 天。
+4. 成功后在该次运行的 **Artifacts** 下载 `folio-reader-windows-x64-…`。解压即可获得 `.exe` 和 `SHA256SUMS.txt`。默认保留 30 天。
 5. 在一台 Windows 测试机完成下方验收后，将 `.exe`、校验文件与发行说明添加到 GitHub Release，选择 `v0.1.1`。也可先推送 `v0.1.1` 标签触发同一构建流程；标签版本必须与配置一致。
 
 工作流仅上传构建产物，不自动创建公开 Release。构建完成后，将各平台安装包及校验文件添加到对应 Release 附件。当前本机没有 Windows 或 Intel runner，因此本地准备完成不等于这些平台构建或验收已通过。

@@ -70,7 +70,7 @@ jobs:
             echo "Expected exactly one DMG installer" >&2
             exit 1
           fi
-          filename="PaperReader_${version}_macOS_${INSTALLER_ARCH}.dmg"
+          filename="FolioReader_${version}_macOS_${INSTALLER_ARCH}.dmg"
           if [[ "${installers[0]}" != "./${filename}" ]]; then
             mv "${installers[0]}" "$filename"
           fi
@@ -78,9 +78,9 @@ jobs:
           shasum -a 256 -c "SHA256SUMS-macos-${INSTALLER_ARCH}.txt"
       - uses: actions/upload-artifact@v4
         with:
-          name: paper-reader-macos-${{ matrix.arch }}-${{ github.sha }}
+          name: folio-reader-macos-${{ matrix.arch }}-${{ github.sha }}
           path: |
-            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/PaperReader_*.dmg
+            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/FolioReader_*.dmg
             src-tauri/target/${{ matrix.target }}/release/bundle/dmg/SHA256SUMS-macos-${{ matrix.arch }}.txt
           if-no-files-found: error
           retention-days: 30
@@ -126,16 +126,16 @@ jobs:
           $installers = @(Get-ChildItem $folder -Filter '*-setup.exe')
           if ($installers.Count -ne 1) { throw 'Expected exactly one NSIS installer' }
           $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
-          $filename = "PaperReader_${version}_Windows_x64.exe"
+          $filename = "FolioReader_${version}_Windows_x64.exe"
           $destination = Join-Path $folder $filename
           Move-Item -LiteralPath $installers[0].FullName -Destination $destination
           $hash = (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLower()
           "$hash  $filename" | Set-Content (Join-Path $folder 'SHA256SUMS-windows-x64.txt') -Encoding utf8
       - uses: actions/upload-artifact@v4
         with:
-          name: paper-reader-windows-x64-${{ github.sha }}
+          name: folio-reader-windows-x64-${{ github.sha }}
           path: |
-            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/PaperReader_*.exe
+            src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/FolioReader_*.exe
             src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/SHA256SUMS-windows-x64.txt
           if-no-files-found: error
           retention-days: 30

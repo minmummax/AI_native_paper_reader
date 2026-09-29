@@ -1,16 +1,18 @@
-# 论文阅读器 · Paper Reader
+# Folio Reader
 
 简体中文 | [English](README.en.md)
 
-<img src="assets/branding/paper-reader.png" alt="论文阅读器图标" width="128" />
+<img src="assets/branding/paper-reader.png" alt="Folio Reader 图标" width="128" />
 
-一个以本地资料为中心的桌面论文阅读器：在标签书架中整理 PDF，阅读时标注和记笔记，也可以选中文字翻译、向 AI 提问。
+一个以本地资料为中心的桌面 PDF 阅读器，适合论文、书籍、财报及其他 PDF 文档：在标签书架中整理 PDF，阅读时标注和记笔记，也可以选中文字翻译、向 AI 提问。
 
-这个项目最初是为了自己阅读论文而做的，也希望能方便有相同需求的人。欢迎反馈问题、分享使用体验，一起把论文整理、阅读和思考变得更顺手。
+这个项目最初是为了自己阅读论文而做的，也希望能方便有相同需求的人。欢迎反馈问题、分享使用体验，一起把资料整理、阅读和思考变得更顺手。
+
+新构建的应用名称为 **Folio Reader**（原名“论文阅读器”），已发布的旧安装包仍可能使用原名。应用标识、数据库及密钥存储标识保持不变。macOS 上新名称的应用不会自动覆盖旧名称的应用；升级前退出旧版并备份资料，安装后使用 Folio Reader。
 
 项目采用 [MIT 许可证](LICENSE)。想参与改进，可以从 [贡献指南](CONTRIBUTING.md) 或 [Issues](https://github.com/minmummax/AI_native_paper_reader/issues) 开始。第三方依赖与素材保留各自的许可证和声明。
 
-**当前版本：v0.1.1 测试版。** macOS Apple Silicon 安装包已在本机生成；Windows x64 已配置 GitHub Actions 构建，尚待首次云端构建及原生验收。Linux 尚未验收。
+**当前版本：v0.1.2 测试版。** macOS Apple Silicon 安装包已在本机生成；Windows x64 已配置 GitHub Actions 构建，尚待首次云端构建及原生验收。Linux 尚未验收。
 
 ## 主要功能
 
@@ -31,15 +33,25 @@
 
 **GitHub 流水线已经包含在本仓库：** [Desktop installers](.github/workflows/windows-build.yml)。将完整代码推送到 GitHub 默认分支后，进入 **Actions → Desktop installers → Run workflow**。流程分别在 Windows x64、macOS Intel 和 macOS ARM 环境安装依赖、执行回归测试和构建，成功后从该次运行的 **Artifacts** 下载各平台安装包及 SHA-256 校验文件。文件名沿用 `windows-build.yml`，显示名称已更新。
 
-也可以推送与应用版本一致的标签（当前为 `v0.1.1`）触发构建。普通分支推送不会自动打包。产物保留 30 天，流程不会自动公开发布 Release。已经存在的 tag 不包含之后的流水线修改；更新推送到默认分支后，请手动选择 `main` 运行。Windows 安装包内置 WebView2 离线安装程序，首次构建需要联网。
+也可以推送与应用版本一致的标签（当前为 `v0.1.2`）触发构建。普通分支推送不会自动打包。产物保留 30 天，流程不会自动公开发布 Release。已经存在的 tag 不包含之后的流水线修改；更新推送到默认分支后，请手动选择 `main` 运行。Windows 安装包内置 WebView2 离线安装程序，首次构建需要联网。
 
-安装包目前未配置正式发布者签名；构建成功不代表各平台原生验收完成。环境安装、发布步骤和验收清单见 [发布指南](docs/RELEASING.md)，版本变化见 [v0.1.1 发行说明](releases/0.1.1/发行说明.md)。
+安装包目前未配置正式发布者签名；构建成功不代表各平台原生验收完成。环境安装、发布步骤和验收清单见 [发布指南](docs/RELEASING.md)，版本变化见 [v0.1.2 发行说明](releases/0.1.1/发行说明.md)。
 
 ## 技术栈与隐私
 
 React 18 + TypeScript strict + TailwindCSS + Tauri 2 + SQLite + 本地 PDF.js Worker。文件、笔记和标注默认保存在本机；arXiv 导入和 AI 问答仅在用户主动操作时联网。
 
 ## AI 阅读助手（首批实现）
+
+设置的“服务类型”现提供 DeepSeek、OpenRouter、智谱 GLM（国内 API）、小米 MiMo 和自定义接口。新增预设会自动填写服务地址，模型 ID 请按对应账户可用型号填写；OpenRouter 通常需要完整的 `厂商/模型` ID。当前仍一次使用一个服务，保存配置不会发起推理。
+
+| 预设 | Base URL | 官方文档 |
+| --- | --- | --- |
+| OpenRouter | `https://openrouter.ai/api/v1` | [接入说明](https://openrouter.ai/docs/quickstart) |
+| 智谱 GLM | `https://open.bigmodel.cn/api/paas/v4` | [官方 SDK](https://github.com/zai-org/z-ai-sdk-python/blob/main/README_CN.md) |
+| 小米 MiMo | `https://api.xiaomimimo.com/v1` | [Chat Completions](https://mimo.mi.com/docs/en-US/api/chat/openai-api) |
+
+预设使用端点隔离的系统凭据，旧的自定义配置使用这些地址时会自动识别服务名称。默认不额外请求流式用量字段，服务返回的用量照常统计；MiMo 使用 `max_completion_tokens` 并关闭深度思考。当前只适配文本聊天，不包含语音、工具调用或原生文件上传。Coding Plan、Token Plan 和其他地域地址请按供应商文档通过自定义接口配置，不能混用密钥与地址。请求构建及离线回归已验证，新增供应商的真实账户联调仍需实际测试。
 
 点击顶部齿轮进入 **应用设置 → 模型与对话**，填写 DeepSeek API Key 并保存。密钥通过 Rust 写入系统凭据库，模型名称保存在 SQLite。官方模式的服务地址固定为 `https://api.deepseek.com`；默认模型为 `deepseek-flash`，可按账户可用模型修改。
 
@@ -81,7 +93,7 @@ npm run tauri -- dev
 npm run tauri -- build --debug --bundles app --config '{"bundle":{"active":true}}'
 ```
 
-输出在 `src-tauri/target/debug/bundle/macos/论文阅读器.app`。正式分发签名与公证仍待配置。第二版 macOS/Windows 构建命令及 GitHub Actions 操作见 [发布指南](docs/RELEASING.md)。
+输出在 `src-tauri/target/debug/bundle/macos/Folio Reader.app`。正式分发签名与公证仍待配置。第二版 macOS/Windows 构建命令及 GitHub Actions 操作见 [发布指南](docs/RELEASING.md)。
 
 ## 日常使用
 
@@ -152,7 +164,7 @@ python3 tests/generate_fixture.py
 - 浏览器组件验证使用生成的 30 页离线 PDF：90 处匹配、逐处跳转及高亮；草稿切换论文和重载后保留内容、类型及页码。备份对话框已检查。
 - 尚未完成真实桌面原生文件选择/恢复端到端验收，以及 Windows/Linux 验收；以上结果不代表 Phase 1 全量验收完成。
 
-## v0.1.1 第二次本地测试发版
+## v0.1.2 第二次本地测试发版
 
 新图标、书架、选区 AI 阅读记录与整篇问答纳入 0.1.1。执行 `npm run release:mac` 生成本机 Mac 安装包；在 Windows 上执行 `npm run release:windows` 生成 x64 NSIS 安装包。已提供 `.github/workflows/windows-build.yml`，推送到 GitHub 后可以从 Actions 手动构建 Windows 版；当前未连接远程仓库，Windows 构建与验收尚未执行。
 
